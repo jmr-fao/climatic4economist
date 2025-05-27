@@ -1,0 +1,26 @@
+author:
+    name: "JMR"
+    email: jan.rossi@fao.org
+    affiliation:
+        name: "SERA team, ESP divition, FAO"
+        url: https://www.fao.org/socioeconomic-research-analysis/en
+format:
+  html:
+    embed-resources: true
+    code-tools: true
+    toc-location: right-body
+    footnotes-hover: true
+    number-sections: true
+  docx:
+    toc-location: body
+toc: true
+toc-expand: 2
+toc-depth: 4
+code-annotations: hover
+editor: source
+editor_options:
+  chunk_output_type: console
+vignette: >
+  %\VignetteIndexEntry{Vignette's Title}
+  %\VignetteEncoding{UTF-8}
+  %\VignetteEngine{quarto::html}

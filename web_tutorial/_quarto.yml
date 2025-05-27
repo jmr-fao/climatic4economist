@@ -1,0 +1,41 @@
+project:
+  type: website
+  output-dir: docs
+
+website:
+  title: "Climate4Economist"
+  navbar:
+    background: lightseagreen
+    logo: images/Climat4Economist_Symbol_6.png
+    left:
+      - href: index.qmd
+        text: Home
+      - text: Tutorials
+        menu:
+          - href: r_reminder.qmd
+          - text: Extract Variables
+          - href: extract_by_point.qmd
+          - href: extract_by_poly.qmd
+          - text: Compute SPI
+          - href: spi_by_points.qmd
+          - href: spi_by_poly.qmd
+
+format:
+  html:
+    theme: Cerulean
+    css: styles.css
+    logo: images/Climat4Economist_Symbol_6.png
+    toc: true
+    toc-expand: 2
+    toc-depth: 3
+    toc-location: right-body
+    embed-resources: true
+    code-tools: true
+    footnotes-hover: true
+    number-sections: true
+
+code-annotations: hover
+editor: source
+editor_options:
+  chunk_output_type: console
+

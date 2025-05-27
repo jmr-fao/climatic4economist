@@ -1,0 +1,330 @@
+---
+title: "Extract CHIRPS precipitation"
+author: "JMR"
+toc: true
+toc-expand: 1
+toc-depth: 2
+format:
+  html:
+    self-contained: true
+    code-tools: true
+    toc-location: right-body
+  docx: 
+    toc-location: body
+editor: source
+editor_options:
+  chunk_output_type: console
+vignette: >
+  %\VignetteIndexEntry{Vignette's Title}
+  %\VignetteEncoding{UTF-8}
+  %\VignetteEngine{quarto::html}
+---
+
+## Is this guide for me?
+
+This guide provides a step-by-step approach to extract raster data based on survey locations. The target audience includes economists who may have experience with statistical software (e.g. STATA) but are less familiar with spatial data processing in R.
+
+The document is not meant to be a course on R or on how the functions work. It is just a practice example on how to extract raster data based on coordinate location. This is done by using specific functions that wrap up as many steps as possible to ensure it is easier for the user to follow.
+
+In this example, we will extract the CHIRPS precipitation observations in Suriname, based on the centroids of the Principal Sampling Units (PSU) of the Suriname Survey of Living Conditions for the years 2016/17 and 2022.
+
+## Overview of Steps
+
+In this guide, we will go through the following steps:
+
+1.  Load the data
+2.  Georeference the survey
+3.  Plot the data
+4.  Extract the raster values
+5.  Merge the extracted values with the survey
+6.  Save the results.
+
+## What do I need before starting?
+
+The following R packages are necessary: `terra`, `tidyverse`, `haven`, and script `functions.R`, which contain the wrapped specific functions. To install the above package you can use `install.packages("name_of_package")`, don't forget the `"`.
+
+If you are not familiar with R check the [appendix] for understanding some coding style used in this tutorial.
+
+# Code
+
+## Set Up
+
+In the setup, we create the paths to the various data sources and load the necessary functions for extraction. Note `..` means one step back to the folder directory, i.e. one folder back.
+
+```{r set_up}
+#| label: set_up
+
+# paths
+path_to_data_raw <- file.path("..",
+                              "data")
+
+path_to_wave_1 <- file.path(path_to_data_raw, "survey", "surname", "wave 1",
+                            "RT001_Public.dta")
+
+path_to_wave_2 <- file.path(path_to_data_raw, "survey", "surname", "wave 2", 
+                            "2022 RT001_Housing_plus.dta")
+
+path_to_adm_div_0 <- file.path(path_to_data_raw, "adm_div", "geoBoundaries",
+                               "geoBoundaries-SUR-ADM0.geojson")
+
+path_to_pre_monthly <- file.path(path_to_data_raw, "weather", "CHIRPS", "monthly",
+                                 "chirps-v2.0.monthly.nc")
+
+path_to_pre_daily <- file.path(path_to_data_raw, "weather", "CHIRPS", "daily")
+
+path_to_survey_day_pre <- file.path(path_to_data_raw, "result", "sur_pre_day_hh.dta")
+
+path_to_survey_month_pre <- file.path(path_to_data_raw, "sur_pre_mnth_hh.dta")
+```
+
+
+```{r load_packg}
+#| label:  load_packg
+
+library(climatic4economist)
+```
+
+## Load the data
+
+We begin by reading the surveys, which in this case consist of two waves with potentially different locations. As a result, we need to load both waves. The waves are stored as `dta` files, so we use the `haven::read_dta()` function to read them.
+
+We only need the hhid, the survey coordinates, and the interview dates. We use `dplyr::select()` to choose these variables. This passage is optional and we bring with us all the variables, but we won't use them. Note that the first wave does not include the interview date.
+
+We combine the two waves using `dplyr::bind_rows()`.
+
+We can use the `head()` function to preview the data and see how it looks.
+
+```{r read_surveys}
+#| label: read_surveys
+
+wave_1 <- haven::read_dta(path_to_wave_1) |>
+    dplyr::select(hhid, lat_cen, long_cen) |> 
+    dplyr::mutate(wave = 1)
+
+wave_2 <- haven::read_dta(path_to_wave_2) |>
+    dplyr::select(hhid, end_date_n, lat_cen, long_cen) |>
+    dplyr::mutate(wave = 2)
+
+survey <- dplyr::bind_rows(wave_1, wave_2)
+
+head(survey)
+```
+
+We also read the spatial file containing the national borders of Suriname, we use `terra::vect()` to load it. By printing the spatial data, we can obtain key information, such as the dimensions (number of rows and variables), the geometry (which indicates the type of spatial object), and the coordinate reference system (CRS), which links the coordinates to precise locations on the Earth's surface. The CRS is particularly important when working with different spatial datasets, as mismatched CRSs can prevent the datasets from aligning correctly.
+
+```{r read_adm_div}
+#| label: read_adm_div
+
+adm_div_0 <- terra::vect(path_to_adm_div_0)
+adm_div_0
+```
+
+Finally, we load the precipitation data. Climatic data typically comes in the form of raster data. A raster represents a two-dimensional image as a rectangular matrix or grid of pixels. These are spatial rasters because they are georeferenced, meaning each pixel (or "cell" in GIS terms) represents a square region of geographic space. The value of each cell reflects a measurable property (either qualitative or quantitative) of that region. In this case, the values are monthly precipitation that falt inn that region. We use the function `terra::rast()` to load the raster data.
+
+This particular raster has global coverage, so we crop it to focus on the country area to reduce its size. Although this step is not strictly necessary, it helps decrease the memory load and makes visualizations more manageable. We use the function `terra::crop()` for this purpose.
+
+When we print the raster, we obtain several key details. The dimension tells us how many cells the raster consists of and the number of layers, each layer corresponds to a particular months for which the observations were made. We also get the spatial resolution, which defines the size of each square region in geographic space, and the coordinate reference system (CRS). Given the importance of the CRS, we extract it using `terra::crs()` and save it for later use.
+
+We also rename the raster layers to reflect the corresponding dates for each layer, as this is useful if we want to track the dates. We use `terra::time()` to extract the dates.
+
+> Note that rasters can store time information in different ways, so it may not always be possible to retrieve dates in this manner. A common alternative is for dates to be embedded in the layer names, in which case we wouldn’t need to rename the layers.
+
+```{r read_pre_monthly}
+#| label: read_pre_monthly
+
+weather_monthly <- terra::rast(path_to_pre_monthly) |>
+    terra::crop(adm_div_0)
+weather_monthly
+
+names(weather_monthly) <- terra::time(weather_monthly)
+weather_monthly
+```
+
+We replicate for daily observation. Since the daily files are bigger, it is more likely to obtain the data separated in multiple file. Usually, each file is one year of observations. We have daily observation from 1980 to 2024, divided into five files. To read them all we just need to provide to the `terra::rast()` function the directories of all the files, the function combines them together for us.
+
+```{r read_pre_daily}
+#| label: read_pre_daily
+
+list.files(path_to_pre_daily) 
+
+weather_daily <- list.files(path_to_pre_daily, full.names = TRUE) |>
+  terra::rast() |>
+  terra::crop(adm_div_0)
+weather_daily
+
+names(weather_daily) <- terra::time(weather_daily)
+weather_daily
+```
+
+## Georeference the survey
+
+As we've mentioned, the weather data is georeferenced, so we need to ensure the same for the survey data. Since many households share the same coordinates, they are linked to the same weather events. To reduce computation time, we extract data only for the unique coordinates, rather than for each household. Moreover, we must ensure that we can later associate the correct weather data with the right household, we do this by creating an merging variable called `ID`.
+
+This is handled by the `prepare_coord()` function, which requires the coordinates' variable names as input.
+
+Once we have the unique coordinates, we are ready to transform them into spatial points using the `georef_coord()` function. When performing this transformation, it's crucial to set the correct CRS, which must match that of the weather data. The CRS is provided as an argument of the function, using the previously saved CRS from the weather data. Also the `georef_coord()` function requires the coordinates' variable names as input.
+
+We can print the result to check the transformation. The new column, `ID`, is created by `prepare_coord()` and identifies each unique coordinate. This is used to merge the weather data with the household data.
+
+```{r georef_coord}
+#| label: georef_coord
+coord <- prepare_coord(survey, lat_var = lat_cen, lon_var = long_cen)
+
+coord_geo <- georef_coord(coord,
+                          geom = c("long_cen", "lat_cen"),
+                          crs = "EPSG:4326")
+coord_geo
+```
+
+Note how there are `r nrow(coord_geo)` rows. These are the unique locations from the survey.
+
+## Plot
+
+A good practice when working with spatial data is to plot it. This is the best way to verify that everything is working as expected.
+
+First, we plot the survey coordinates to ensure they are correctly located within the country and to examine their spatial distribution.
+
+```{r plot_survey_geo}
+#| label: plot_survey_geo
+
+terra::plot(adm_div_0, col = "grey", main = "Suriname and PSU centroids")
+terra::points(coord_geo, col = "gold", alpha = 0.5, cex = 0.5)
+
+```
+
+We confirm that the survey locations are within the country borders, which is great! We also observe that the spatial distribution of survey coordinates is neither random nor uniform; most are concentrated near the capital and along the coast.
+
+Next, we plot a layer of the precipitation data to see how it overlaps with the spatial coordinates.
+
+```{r plot_precipitation}
+#| label: plot_precipitation
+
+terra::plot(weather_monthly, "2024-10-01", col = terra::map.pal("water"),
+            main = "Monthly precipitation at 2024-10 and survey location")
+terra::lines(adm_div_0, col = "white", lwd = 2)
+terra::points(coord_geo, col = "gold", alpha = 0.5, cex = 0.5)
+```
+
+Once again, the survey coordinates align with the precipitation data, which is great! We can also observe the high spatial resolution of the CHIRPS dataset. However, despite this high resolution, some survey coordinates still fall within the same cell.
+
+## Extract
+
+Next, we extract the weather data based on the survey coordinates using the `extract_by_coord()` function. This function requires the raster with the weather data and the georeferenced coordinates as inputs.
+
+Looking at the result, we see first the `ID` column, that identifies the unique survey coordinates. The second and third column are the coordinates of the cells. The other columns contain the weather observations over time specific to each coordinate.
+
+```{r extract_precipitation}
+#| label: extract_precipitation
+
+pre_month_coord <- extract_by_coord(raster = weather_monthly, 
+                                    coord = coord_geo)
+pre_month_coord
+
+pre_daily_coord <- extract_by_coord(raster = weather_daily, 
+                                    coord = coord_geo)
+pre_daily_coord
+```
+
+Again we have a row for each unique location from the survey. However, if we want to know how many different cells there are we can look unique cell coordinates.
+
+```{r cell_coordinate}
+#| label: cell_coordinate
+
+unique_cell <- pre_month_coord |>
+  dplyr::distinct(x_cell, y_cell)
+nrow(unique_cell)
+```
+
+We see that now the number of rows is `r nrow(unique_cell)`, this is the actual different weather observation that we can merge with the survey.
+
+## Merge with survey
+
+Now, we combine the extracted weather data with the survey data using `merge_with_survey()`, which under the hood uses the variable `ID` as the key matching variable.
+
+```{r merge_pre}
+#| label: merge_pre
+
+pre_month_survey <- merge_with_survey(coord, pre_month_coord)
+pre_month_survey
+
+pre_day_survey <- merge_with_survey(coord, pre_daily_coord)
+pre_day_survey
+```
+
+We are back at `r nrow(pre_month_survey)`, which matches the original survey.
+
+## Save
+
+The final step of the code is to save the result. In this case, we save it as a `dta` file using the `haven::write_dta()` function.
+
+```{r write_data}
+#| label: write_data
+
+haven::write_dta(pre_month_survey, path_to_survey_month_pre)
+haven::write_dta(pre_day_survey, path_to_survey_day_pre)
+```
+
+# Take home messages
+
+1.  Load! `haven::read_dta()` for the `dta` files, `terra::vect()` for the spatial vectors file, `terra::rast()` for the raster files.
+
+2.  Georeference! Use the wrapper functions `prepare_coord()` and `georef_coord()`. Remember to plot the result for confirmation.
+
+3.  Extract! Use the wrapper function `extract_by_coord()`.
+
+4.  Merge! Use the wrapper function `merge_with_survey()`.
+
+5.  Save! If in a `dta` file use `haven::write_dta()`.
+
+# Appendix
+
+## New to R? Read this first!
+
+### The pipe command
+
+The pipe command `|>`. It lets you pass the result of one expression as the first argument to the next, creating a fluid chain of functions.
+
+### The package namespaces
+
+The package namespaces `package_name::function_name()`. As the name suggests, namespaces provide "spaces" for "names". They provide a context for looking up the value of an object associated with a name. When we write `terra::vect()` we are asking R to look for the function `vect()` in the `terra` package.
+
+It's a fairly advanced topic, and by-and-large, not that important! When you first start using namespaces, it'll seem like a lot of work for little gain. However, having a high quality namespace helps encapsulate your package and makes it self-contained. This ensures that other packages won't interfere with your code, that your code won't interfere with other packages, and that your package works regardless of the environment in which it's run.
+
+You can avoid using every time the name space by just loading the necessary packages at the beginning of the code (in the set up section for example). This is the most known and common approach. To do so just add `library(name_of_package)`, for example `library(terra)`. Then we can just call the function without the name space, like this `vect()`.
+
+### The assign operator
+
+The assign operator `<-`. This is a peculiarity of R and it is used to assign values to variables. Note that the operators `<-` and `=` can be used, almost interchangeably.
+
+## Want to know about the data?
+
+### Precipitation
+
+Monthly and daily precipitation from Climate Hazards Group InfraRed Precipitation with Station data (CHIRPS)[^1] is a 35+ year quasi-global rainfall data set. Spanning 50°S-50°N (and all longitudes) and ranging from 1981 to near-present, CHIRPS incorporates in-house climatology, CHPclim, 0.05° resolution satellite imagery, and in-situ station data to create gridded rainfall time series for trend analysis and seasonal drought monitoring.
+
+[^1]: Funk, C.C., Peterson, P.J., Landsfeld, M.F., Pedreros, D.H., Verdin, J.P., Rowland, J.D., Romero, B.E., Husak, G.J., Michaelsen, J.C., and Verdin, A.P., 2014, A quasi-global precipitation time series for drought monitoring: U.S. Geological Survey Data Series 832, 4 p. http://pubs.usgs.gov/ds/832/
+
+Data can be downloaded from [here](https://data.chc.ucsb.edu/products/CHIRPS-2.0/global_monthly/netcdf/) while extra information are available [here](https://www.chc.ucsb.edu/).
+
+| feature             | value                 |
+|:--------------------|:----------------------|
+| spatial resolution  | 0.05 x 0.05 (\~ 5 km) |
+| temporal resolution | monthly or daily      |
+| temporal frame      | 1981 - near present   |
+| unit of measure     | mm/month or mm/day    |
+
+### Surveys
+
+Suriname Survey of Living Conditions. The 2022 Suriname Survey of Living Conditions is a joint survey made by The Inter-American Development Bank (IDB) and the World Bank. The 2022 Suriname Survey of Living Conditions - administered to a nationally representative sample, which included 7,713 individuals from 2,540 households - was developed to support poverty analysis as well as policy planning and is a helpful tool for policy makers to facilitate fact-based decision making. The survey’s design and execution were financed by the IDB, while the World Bank and IDB are joining forces to analyze data and produce initial findings.
+
+The Suriname Survey of Living Conditions (SSLC) 2016/17 is an effort of the Inter-American Development Bank (IDB) with the support of the EnergieBedrijvan Suriname’s (state-owned electrical company of Suriname) and the Central Bank of Suriname. It visited about 2,000 households from October 2016 through September 2017 and collected data on the most important dimensions of welfare, which will support evidence-based policy making in areas such as education, health, housing, employment and poverty alleviation. The survey also gathered information on the consumption patterns, income and expenditures of the Surinamese households, intended to update the Consumption Price Index basket and inform the System of National Accounts.
+
+For extra info look [here](https://openknowledge.worldbank.org/entities/publication/2d0e6975-2f85-4d12-83fa-4f75c617cf89) and [here](https://webapps.ilo.org/surveyLib/index.php/catalog/7499).
+
+### National boundaries
+
+The national administrative divisions are obtained from GeoBoundaries[^2]. GeoBoundaries Built by the community and William & Mary geoLab, the geoBoundaries Global Database of Political Administrative Boundaries Database is an online, open license (CC BY 4.0) resource of information on administrative boundaries (i.e., state, county) for every country in the world. Since 2016, we have tracked approximately 1 million boundaries within over 200 entities, including all UN member states.
+
+[^2]: Runfola D, Anderson A, Baier H, Crittenden M, Dowker E, Fuhrig S, et al. (2020) geoBoundaries: A global database of political administrative boundaries. PLoS ONE 15(4): e0231866. https://doi.org/10.1371/journal.pone.0231866.
+
+Data can be downloaded from [here](https://www.geoboundaries.org) while extra information are available [here](https://www.geoboundaries.org/countryDownloads.html).

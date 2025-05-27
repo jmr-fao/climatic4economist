@@ -1,0 +1,477 @@
+---
+title: "Compute Frequentist Weather Extreme Indicators"
+author: "JMR"
+format:
+  html:
+    self-contained: true
+    code-tools: true
+    toc: true
+    toc-expand: 1
+    toc-depth: 2
+    toc-location: right-body
+editor: source
+editor_options:
+  chunk_output_type: console
+vignette: >
+  %\VignetteIndexEntry{Vignette's Title}
+  %\VignetteEncoding{UTF-8}
+  %\VignetteEngine{quarto::html}
+---
+
+## Is this guide for me?
+This guide provides a step-by-step approach to compute the frequentist weather extreme indicators based on survey locations. The target audience includes economists who may have experience with statistical software (e.g. STATA) but are less familiar with R.
+
+## Overview of Steps
+
+In this guide, we will go through the following steps:
+
+1.  Load the data
+2.  Prepare the data
+3.  Find the weather extreme events with absolute threshold
+4.  Find the weather extreme events with relative threshold
+5.  Merge the weather extreme events with the survey
+6.  Summarize the weather extreme events into indicators
+7.  Save the results.
+
+## What do I need before starting?
+The following R packages are necessary: `tidyverse`, `haven`, `furrr`, `clock`, and script `functions.R`, which contain the wrapped specific functions. To install the above package you can use `install.packages("name_of_package")`, don't forget the `"`.
+
+# Code
+## Set Up
+
+In the setup, we create the paths to the various data sources and load the necessary functions for extraction.
+
+```{r set_up}
+#| label: set_up
+
+# paths
+path_to_data_processed <- file.path("..",
+                                    "data")
+path_to_pre_survey <- file.path(path_to_data_processed, "pre_day_survey.dta")
+
+# load wrapper functions
+source("functions.R")
+
+```
+
+## Load the data
+
+We expect to already have the precipitation time series associated with the household of the survey. This data is stored as `dta` files, so we use the `haven::read_dta()` function to read it.
+
+We can see how the data is in wide format: the columns refer to dates.
+
+```{r read_surveys}
+#| label: read_surveys
+
+survey <- haven::read_dta(path_to_pre_survey)
+
+survey
+```
+
+## Prepare the data
+```{r unique_values}
+n_hh <- nrow(survey)
+n_hh
+
+n_locations <- unique(survey$ID) |> 
+  length()
+n_locations
+
+n_cells <- survey |>
+    dplyr::distinct(x_cell, y_cell) |>
+    nrow()
+n_cells
+```
+
+In the survey there are `r n_hh` household, but some of them share the same location. Indeed the number of unique location is `r n_locations`. Further, some of these location have the same weather observations. The actual unique weather observations is `r n_cells`.
+
+Computing the weather extreme indicators can be computationally intensive, especially if we need to do it for each households. However, we now that there actually only `r n_cells` distinct weather time series, so we compute the indicators only for these ones. We prepare the data with the `prepare_coord()` function, which creates an `ID` column that identifies the unique location.
+
+```{r prep_coord}
+#| label: prep_coord
+
+coord <- prepare_coord(survey,
+                       lat_var = y_cell, 
+                       lon_var = x_cell)
+
+coord
+```
+
+## Find absolute weather extreme events
+We start by identifying days that experienced an extreme weather event using the function `find_abs_ext_day()`. This function determines which days had extreme precipitation based on absolute threshold values, which can be set arbitrarily. 
+
+A common lower threshold for counting dry days (days without precipitation) is 0.1 mm/day. However, stricter thresholds can be applied if needed. 
+
+For upper thresholds, typical values include 10 mm/day for heavy precipitation and 20 mm/day for very heavy precipitation. Given the climate of our study area, Suriname, which has a Tropical Rainforest climate with high temperatures and abundant rainfall year-round, we include two additional upper thresholds to capture more extreme precipitation events.
+
+>These thresholds are absolute, meaning they are the same across all locations and usually they are choosen based on biophysical threshold linked to the application. Moreover, having a clear threshold, shared by all, it favours the interpretation of the result. However, a common threshold is useful if the locations of the application are very similar among themself from a climatic point of view. If the locations are climatically different, a threshold that is extreme in one location can be the normality in another location, so finding a common absolute trheshold can be challenging.
+
+We have precipitation observations that started in 1981, however we are not interested into looking for extreme events that happened so far back in time. To limit the analysis to a specific time range, we use the function `select_by_dates()`. The functions requires either or both of the parameters, `from` (starting date) and `to` (end date). If both are provided, the function selects dates within that range. If only `from` is specified, it selects all dates after that point. If only `to` is provided, it selects all dates before that point. This can be useful also if we are just interested in a precise time rage, to see if the data is able to detect a known weather event.
+
+In other application we can be interested in a precise season of the year, like the agricultural one. To select between two dates but across multiple years we can use the function `select_by_season()`. Also in this case we need to provide two arguments: `from` (starting date) and `to` (end date). The format of these two arguments is `"mm-dd"`, like `"04-15"` for April the 15th.
+
+```{r select_dates}
+#| label: select_dates
+
+coord_12_23  <- select_by_dates(coord, from = "2012-01-01", to = "2023-01-01") 
+coord_12_23
+```
+
+Let's select some upper thresholds, which means we are looking for weather events that are above these thresholds. Additionally, we could have added also some lower thresholds for weather events that are below these thresholds.
+
+The argument `unit` specifies the unit of measure of the weather observation, e.g. `"mm"` for precipitation, `"C"` for temperature. It does not have implication for the computations but it labels the result accordingly.
+
+```{r find_day_pre}
+#| label: find_day_pre
+
+upper_thresh = c(20, 30, 40)
+extr_day_abs <- find_abs_ext_day(coord_12_23,
+                                 u_thresh = upper_thresh,
+                                 unit = "mm")
+```
+
+The `find_abs_ext_day()` function creates several columns to the dataset:
+
+* The column `mm` represents the daily precipitation amount.
+
+* The columns that start with `day_abv_`: these indicate whether the daily precipitation was above the upper threshold.
+
+* If we had added also the lower thresholds the result would have had other columns that start with `day_blw_`: these indicate whether the daily precipitation was below the lower threshold.
+
+* The columns that start with `mm_abv_`: these indicate the amount of daily precipitation that exceeded the upper threshold. If the precipitation was below the upper threshold, the value is zero.
+
+* Similarly, if we had added also the lower thresholds we would have had also `mm_blw` the lower thresholds.
+
+```{r print_abs_day}
+#| label: print_abs_day
+
+extr_day_abs |>
+  dplyr::select(ID, date, mm, dplyr::starts_with("day"))
+
+extr_day_abs |>
+  dplyr::select(ID, date, mm, dplyr::starts_with("mm"))
+```
+
+To find consecutive days of extreme observations we can use the function `find_abs_extr_spell()`. This function look for consecutive days that are more extreme than the thresholds.
+
+In this application we look for dry spell, i.e. consecutive days without precipitation. A common threshold for dry days is 0.1 mm/day. Therefore any days with a precipitation below 0.1 mm is considered dry. We set 0.1 as lower threshold of the function through the argument `l_thresh`. We can set even more stringent thresholds or even upper thresholds, for consecutive days of weather above the threshold.
+
+The argument `min_spell` sets the minimum consecutive days required to define a spell. The default value is two, but another values are possible. A common value is five, so we need to have at least five consecutive dry days to have a dry spell.
+
+```{r find_abs_spell}
+#| label: find_abs_spell
+
+lower_thresh = c(0.1)
+extr_spell_abs <- find_abs_extr_spell(coord_12_23,
+                                      l_thresh = lower_thresh,
+                                      min_spell = 2)
+```
+
+The result of the `find_abs_extr_spell()` function contains:
+
+* the column `value` is the weather observation.
+
+* columns that start with `spell_blw_`: these indicate the number of consecutive days with precipitation below the lower threshold. These columns contain values only on the last consecutive day of a spell, with `NA` for other days.
+
+* columns that start with `spell_abv_`: these indicate the number of consecutive days with precipitation above the upper threshold. These columns contain values only on the last consecutive day of a spell, with `NA` for other days. Actually, we don't have them as we haven't specified the upper threshold.
+
+```{r print_abs_spell}
+#| label: print_abs_spell
+
+extr_spell_abs
+```
+
+## Create the relative threshold
+>If we believe the thresholds shouldn't be the same across all the location but instead be adaptive to the local long run climatic condition we should use the relative thresholds. In this case the thresholds varies for each location, adapting to the local climatic features and making the spatial comparison among heterogeneous places more meaningful. The relative approach measures the extreme weather events in term of their rarity, which is measured by the percentile of their local and seasonal distribution.
+
+Therefore, as first step we need to calculate the weather distribution in each survey location and for each month.
+
+For the precipitation we can use the `calc_pct_day()` functions. The function looks for the unique `ID` occurrences, which we previously computed with the function `prepare_coord()`. Just as reminder, the `ID`s refers to the unique time series of observations.
+
+>Usually, the percentile on precipitation are calculated based on wet days.
+
+We can select the threshold for dry days with the argument `l_thresh`. We use the more traditional dry day threshold of 0.1 mm/day. However, other thresholds can be used and upper threshold as well with the input `u_thresh`. Note that these thresholds can be used as lower and upper bounds for the threshold. For example, by setting the lower threshold at 0.1 mm/day we ensure that the percentiles will not below it, and if no observation satisfy the threshold (like in very dry season where there is no precipitation at all) the percentile will be the lower threshold itself.
+
+We can specify the percentiles we want to compute with the argument `p`. Common values are the 95th and 99th percentiles. We can interpret these thresholds as the level of rarity of a particular extreme events. For example, with the 95th percentile we have five percent of probability to observe some weather realization above this threshold.
+
+The first two columns of the result identify the unique location and the month. The month is important as we compute the  statistic for each month to account for climatic seasonality.
+
+>Note that even if we compute the statitics for each month the unit of measure for is still mm per day for precipitation.
+
+
+```{r compute_percentiles_pre}
+#| label: compute_percentiles_pre
+
+percentile_pre <- calc_pct_day(coord,
+                               p = c(0.95, 0.99),
+                               l_thresh = 0.1)
+
+percentile_pre
+```
+
+We can now do the same for the dry spells, by using the function `calc_pct_spell()`.
+
+>The dry spells statistics are assigned to the month in which the dry spell ends. The unit of measure of the dry spells is day. 
+
+Similar to the previous results, the first two columns of the result identify the unique location and the month. Then, we have the monthly average length of the dry spells, the monthly standard deviation, and the monthly length thresholds we asked for.
+
+```{r compute_percentiles_spell}
+#| label: compute_percentiles_spell
+
+percentile_spell <- calc_pct_spell(coord, 
+                                   l_thresh = 0.1,
+                                   p = c(0.95, 0.99))
+
+percentile_spell
+```
+
+## Find relative weather extreme events
+Now that we have the relative thresholds we can now look for the extreme weather events. The function `find_rel_extr_day()` does it for us. 
+
+The function requires the weather observations and the relative thresholds we want to use. Additionally we can provide also the unit of measure with the argument `unit`. This has no computational implication but it labels the result accordingly.
+
+```{r find_rel_ext_day}
+#| label: find_rel_ext_day
+
+coord_12_23  <- select_by_dates(coord, from = "2012-01-01", to = "2023-01-01") 
+
+extr_day_rel <- find_rel_extr_day(coord_12_23,
+                                  u_thresh = percentile_pre,
+                                  unit = "mm")
+```
+
+
+The function returns two set of variables. 
+
+* The variables that start with `pre_abv_` tells us if that day the precipitation was above the monthly percentile indicated by the number.
+* The variables that start with `mm_abv_` tells us by how much the daily precipitation exceeded the monthly percentile indicated by the number.
+
+The variables that contain `_max_` tells us if that day the precipitation was above the highest among the monthly percentiles. This means that the percentile is not specific for the month but it is the highest of the year. In other words, it doesn't take into consideration seasonality but always compare with the extreme of the month with most abundant precipitation. This is useful if we want to consider an implicit lower bound for precipitation. For example, in places with strong dry season, where usually no precipitation at all fall, even small amount can be considered extreme. However, these amounts are too small to affect significantly the households.
+
+
+```{r print_rel_ext_day}
+#| label: print_rel_ext_day
+
+extr_day_rel |>
+  dplyr::select(ID, date, mm, dplyr::starts_with("day")) |>
+  print(n = 10)
+
+extr_day_rel |>
+  dplyr::select(ID, date, mm, dplyr::starts_with("mm")) |>
+  print(n = 10)
+```
+
+We can now do the same for the dry spells, by using the function `find_rel_extr_spell()`. The function requires the precipitation observations and the relative thresholds we want to use. The function understands the thresholds used to calculate the spells percentiles and applies the same thresholds for calculating the new spells for the comparison.
+
+The result tells us by how many days the dry spell exceeded the monthly percentile length indicated by the number. Days with `NA` values are days without any ending dry spell exceeding the thresholds. We do a focus to see that there is actually non `NA` values. A value of zero means that the spell exactly matches the thresholds.
+
+```{r find_rel_ext_spell}
+#| label: find_rel_ext_spell
+
+rel_extr_spell <- find_rel_extr_spell(coord_12_23,
+                                      percentile_spell)
+
+rel_extr_spell |>
+  print(n = 5)
+
+rel_extr_spell |>
+  dplyr::filter(spell_blw_0.1_99p >= 0) |>
+  print(n = 5)
+```
+
+
+## Merge with the survey
+Next, we merge the extreme weather events. This step is essential because we need the household interview dates to assign the correct extreme event data. We achieve this using the function `merge_with_survey()`, which matches records based on the `ID` column.
+
+If we want to select only a subset of observations, we can use the `filter_by_interview()` function. This function requires specifying the variable that contains the interview dates and defining the selection interval. The interval can be expressed in months or years, and move backwards starting form the date of interview.
+
+>Note that the current version of `filter_by_interview()` drops the observation with missing date of interview.
+
+```{r merge_abs_ext_event}
+#| label: merge_abs_ext_event
+
+abs_ext_day_survey <- merge_with_survey(coord, extr_day_abs)
+abs_ext_day_survey
+# filter_by_interview(abs_extreme_survey,
+#                     interview = end_date_n,
+#                     interval = "1 year")
+
+abs_ext_spell_survey <- merge_with_survey(coord, extr_spell_abs)
+abs_ext_spell_survey
+```
+
+```{r merge_rel_ext_event}
+#| label: merge_rel_ext_event
+rel_ext_day_survey <- merge_with_survey(coord, extr_day_rel)
+rel_ext_day_survey
+
+
+rel_extr_spell_survey <- merge_with_survey(coord, rel_extr_spell)
+rel_extr_spell_survey
+```
+
+## Summarise the weather extreme into indicators
+We can now summarize the absolute extreme precipitation events to create precipitation weather extreme indicators with the function `extr_day_index()` for single day weather extreme and the function `extr_spell_index()` for consecutive days. 
+
+To do this, we need to specify the reference period and the number of lagged reference periods to include. In this case, we set the reference period to `"1 year"`, meaning we calculate the extreme indicators over one year before the interview. The `n_lags` parameter determines how many reference periods we go back for the calculation. The `n_lags` works like this:
+
+* 0, refers to the year before the interview.
+
+* 1, refers to the second year before the interview.
+
+* 2, refers to third year before the interview.
+
+* and so on.
+
+The `interview` argument identifies the column containing the interview date, which serves as the starting point for calculating the reference period. All observations after the interview date are discarded. Finally, the `id` argument specifies the column containing the unit ID.
+
+This function makes some check on the good formatting of the dates, which takes time, so we need to be a little patient in waiting for the results. Moreover, given the possibility that each household was interview in a different day and a different location we need to use the full survey dataset, which greatly increase the computation efficiency.
+
+```{r extr_day_index}
+#| label: extr_day_index
+
+abs_extr_day_index <- extr_day_index(abs_ext_day_survey,
+                                    interview = end_date_n,
+                                    id = hhid,
+                                    interval = "1 year",
+                                    n_lags = 1)
+
+rel_extr_day_index <- extr_day_index(rel_ext_day_survey,
+                                     interview = end_date_n,
+                                     id = hhid,
+                                     interval = "1 year",
+                                     n_lags = 1)
+
+```
+
+The first two columns of the result are the household `hhid` and the lag reference period.
+The other columns contains:
+
+* `day_abv_X_sum`: number of days with the weather observation above the `X` threshold.
+* `mm_abv_X_sum`: sum of millimeter above the threshold.
+
+Note that if we had added also days below the threshold we would have got also `day_blw_X_sum` and `mm_blw_X_sum`, which are number of days with the weather observation below the `X` threshold and the sum of millimeter below the threshold.
+
+Moreover, we got `mm_abv_X_sum` because we set `"mm"` for the `unit` argument in the `find_abs_extr_day()` functions. Any change to this argument will be reflected also in the results.
+
+```{r print_extr_day_index}
+#| label: print_extr_day_index
+
+abs_extr_day_index
+
+rel_extr_day_index
+```
+
+The function `extr_spell_index()` require the same arguments of the `extr_day_index()`, just be aware of using the weather extreme spells data.
+
+```{r extr_spell_index}
+#| label: extr_spell_index
+
+abs_extr_spell_index <- extr_spell_index(abs_ext_spell_survey,
+                                         interview = end_date_n,
+                                         id = hhid,
+                                         interval = "1 year",
+                                         n_lags = 1)
+
+rel_extr_spell_index <- extr_spell_index(rel_extr_spell_survey,
+                                         interview = end_date_n,
+                                         id = hhid,
+                                         interval = "1 year",
+                                         n_lags = 1)
+```
+
+
+The first two columns of the result are the household `hhid` and the lag reference period.
+The other columns contains:
+
+* `spell_blw_X_max`, the length of consecutive day with weather below the `X` threshold.
+* `spell_blw_X_mean`, the average length of consecutive day with weather below the `X` threshold.
+* `spell_blw_X_sum` , the sum of the lengths of all consecutive days with weather below the `X` threshold.
+* `spell_blw_X_n`, the number of spells tat satisfy the `X` threshold.
+
+Note that if we had added also days above the threshold we would have got also `spell_abv_X_max` and so on, which refer to consecutive days with weather above the `X` threshold.
+
+
+```{r print_extr_spell_index}
+#| label: print_extr_spell_index
+
+abs_extr_spell_index
+rel_extr_spell_index
+```
+
+## Save
+The final step of the code is to save the result. In this case, we save it as a `dta` file using the `haven::write_dta()` function. STATA doesn't allow variables name with `.` in it or that start with a number. Therefore, before saving the result we rename the columns with `.`, by removing the dot. This passage is performed by the `dplyr::rename_with()` function.
+
+```{r write_data}
+#| label: write_data
+
+abs_extr_spell_index |>
+  dplyr::rename_with(.fn = ~ gsub("\\.", "", .x)) |>
+  haven::write_dta(file.path(path_to_data_processed, "abs_extr_spell_index.dta"))
+
+rel_extr_spell_index |>
+  dplyr::rename_with(.fn = ~ gsub("\\.", "", .x)) |>
+  haven::write_dta(file.path(path_to_data_processed, "rel_extr_spell_index.dta"))
+
+abs_extr_day_index |>
+  haven::write_dta(file.path(path_to_data_processed, "abs_extr_day_index.dta"))
+
+rel_extr_day_index|>
+  haven::write_dta(file.path(path_to_data_processed, "rel_extr_day_index.dta"))
+```
+
+# Take home messages
+
+1.  Work with `dta`! We can read `dta` files with `haven::read_dta()` and write files with `haven::write_dta()`. To work with STATA labels check out the `labelled` package.
+
+2.  Prepare the data! There are many repetitions in the data for which we don't need to calculate the weather extremes. We can use the wrapper function `prepare_coord()` to identify the unique locations and to distinguish then with a variable `ID`. 
+
+3.  Find the weather extreme events! There are two approaches:
+
+    * Absolute thresholds. They are the same across all location and across all months. They have an easy interpretation as they are linked to biophysical thresholds to define what is extreme. Use the wrapper function `find_abs_ext_day()` to look for extreme days and the function `find_abs_extr_spell()` to look for consecutive occurrences.
+  
+    * Relative thresholds. They are location and monthly specific thresholds. They measures extreme based on the rarity of occurrence and are usually defined as the percentile of the weather distribution. Use the wrapper function `calc_pct_day()` to calculate daily percentiles and the wrapper function `calc_pct_spell()` to calculate the percentiles of consecutive weather events. Based on these percentile we can find the extreme events with the wrapper functions `find_rel_ext_day()` and `find_rel_extr_spell()`.
+
+4. As a final step we need to summaries the weather extreme events into some indicators. For this passage is essential to define the correct reference period with, usually, depends on the date of interview and the interval before the date of interview. Therefore, we need to merge the weather extreme observation with the survey with the wrapper function `merge_with_survey()`. Then the summary passage is carried out by the wrapper function `extr_day_index()` and `extr_spell_index()`, respectively for summarize daily weather extreme events and spell weather extreme events.
+
+# Appendix
+## New to R? Read this first!
+
+### The pipe command
+
+The pipe command `|>`. It lets you pass the result of one expression as the first argument to the next, creating a fluid chain of functions.
+
+### The package namespaces
+
+The package namespaces `package_name::function_name()`. As the name suggests, namespaces provide "spaces" for "names". They provide a context for looking up the value of an object associated with a name. When we write `terra::vect()` we are asking R to look for the function `vect()` in the `terra` package.
+
+It's a fairly advanced topic, and by-and-large, not that important! When you first start using namespaces, it'll seem like a lot of work for little gain. However, having a high quality namespace helps encapsulate your package and makes it self-contained. This ensures that other packages won't interfere with your code, that your code won't interfere with other packages, and that your package works regardless of the environment in which it's run.
+
+You can avoid using every time the name space by just loading the necessary packages at the beginning of the code (in the set up section for example). This is the most known and common approach. To do so just add `library(name_of_package)`, for example `library(terra)`. Then we can just call the function without the name space, like this `vect()`.
+
+### The assign operator
+
+The assign operator `<-`. This is a peculiarity of R and it is used to assign values to variables. Note that the operators `<-` and `=` can be used, almost interchangeably.
+
+## Want to know about the data?
+### Precipitation
+Daily precipitation from Climate Hazards Group InfraRed Precipitation with Station data (CHIRPS)[^1] is a 35+ year quasi-global rainfall data set. Spanning 50°S-50°N (and all longitudes) and ranging from 1981 to near-present, CHIRPS incorporates in-house climatology, CHPclim, 0.05° resolution satellite imagery, and in-situ station data to create gridded rainfall time series for trend analysis and seasonal drought monitoring. 
+
+Data can be downloaded from [here](https://data.chc.ucsb.edu/products/CHIRPS-2.0/global_monthly/netcdf/) while extra information are available [here](https://www.chc.ucsb.edu/).
+
+[^1]: Funk, C.C., Peterson, P.J., Landsfeld, M.F., Pedreros, D.H., Verdin, J.P., Rowland, J.D., Romero, B.E., Husak, G.J., Michaelsen, J.C., and Verdin, A.P., 2014, A quasi-global precipitation time series for drought monitoring: U.S. Geological Survey Data Series 832, 4 p. http://pubs.usgs.gov/ds/832/
+
+| feature             | value                 |
+|:--------------------|:----------------------|
+| spatial resolution  | 0.05 x 0.05 (\~ 5 km) |
+| temporal resolution | monthly or daily      |
+| temporal frame      | 1981 - near present   |
+| unit of measure     | mm/day                |
+
+### Surveys
+Suriname Survey of Living Conditions. The 2022 Suriname Survey of Living Conditions is a joint survey made by The Inter-American Development Bank (IDB) and the World Bank. The 2022 Suriname Survey of Living Conditions - administered to a nationally representative sample, which included 7,713 individuals from 2,540 households - was developed to support poverty analysis as well as policy planning and is a helpful tool for policy makers to facilitate fact-based decision making. The survey’s design and execution were financed by the IDB, while the World Bank and IDB are joining forces to analyze data and produce initial findings.
+
+The Suriname Survey of Living Conditions (SSLC) 2016/17 is an effort of the Inter-American Development Bank (IDB) with the support of the EnergieBedrijvan Suriname’s (state-owned electrical company of Suriname) and the Central Bank of Suriname. It visited about 2,000 households from October 2016 through September 2017 and collected data on the most important dimensions of welfare, which will support evidence-based policy making in areas such as education, health, housing, employment and poverty alleviation. The survey also gathered information on the consumption patterns, income and expenditures of the Surinamese households, intended to update the Consumption Price Index basket and inform the System of National Accounts. 
+
+For extra info look [here](https://openknowledge.worldbank.org/entities/publication/2d0e6975-2f85-4d12-83fa-4f75c617cf89) and [here](https://webapps.ilo.org/surveyLib/index.php/catalog/7499).
+

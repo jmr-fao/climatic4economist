@@ -1,0 +1,75 @@
+---
+title: "Climate4Economist: an R package to comabine weather and spatial analysis with surveys"
+---
+
+This website is meant to provide a series of tutorials to extract spatial data based on survey locations, compute weather extreme indicators, and merge them with survey data based on location and date of interview. The tutorials rely on `climate4economist` package, which contains functions that wrap up as many steps as possible to ensure it is easier for the user to follow.
+
+It is not meant to be a tutorial on spatial analysis, neither a tutorial on weather data and indicators, and neither a tutorial on R. Despite, some of these aspects are describe the main purpose is to provide a guide that can be replicate with other surveys.
+
+The target audience includes economists who may have experience with statistical software (e.g. STATA) but are less familiar with spatial data processing in R.
+
+::: {.column-margin}
+![](images/Climat4Economist_Symbol_6.png)
+:::
+
+## Tutorial Content
+- [0: Reminder of some R concepts](r_reminder.qmd). If you are new to R, read this first. It will give a small description of the pipe command (`|>`), the package namespace (`package::function()`), the assign operator (`<-`), and about how to create and use functions in R.
+- [1: Extract spatial data based on spatial point](extract_by_point.qmd). The first tutorial shows how to extract spatial variables based on the survey coordinates. The spatial variables covers some common variables used as control in regression analysis, like elevation, agroecological zones, nighttime light, Urban-Rural Catchment Areas, precipitation, and temperature. The tutorial shows also how to compute some terrain indicators and climatic parameters.
+- [2: Extract spatial data based on spatial polygons](extract_by_poly.qmd). The second tutorial is very similar to the first but shows how to extract the spatial variable based on areas associated to the survey, like the administrative divisions. The spatial variables are the same of the first tutorial: elevation, agroecological zones, nighttime light, Urban-Rural Catchment Areas, precipitation, temperature, and in addition population. The tutorial shows also how to compute some terrain indicators and climatic parameters.
+- [3: Compute the Standardize Precipitation Index based on spatial point](compute_spi_by_point.qmd). The third tutorial shows how to compute the Standardize Precipitation Index (SPI) based on based on the survey coordinates.
+- [4: Compute the Standardize Precipitation Index based on spatial polygons](compute_spi_by_poly.qmd). The third tutorial shows how to compute the Standardize Precipitation Index (SPI) based on based on on areas associated to the survey, like the administrative divisions.
+- [5: Compute the dry spell indicator based on spatial point](compute_dry_spell_by_point.qmd). 
+- [6: Compute the dry spell indicator based on spatial polygons](compute_dry_spell_by_poly.qmd). 
+- [7: Compute the flood indicator based on spatial point](compute_flood_by_point.qmd). 
+- [8: Compute the flood indicator based on spatial polygons](compute_flood_by_poly.qmd). 
+- [9: Compute the cold indicator based on spatial point](compute_cold_by_point.qmd). 
+- [10: Compute the cold indicator based on spatial polygons](compute_cold_by_poly.qmd). 
+
+## What do I need before starting?
+### You need R and Rstudio
+From this [web page](https://posit.co/download/rstudio-desktop/) you can download both R and Rstudio.
+
+::: {.callout-note}
+Note that R is the actual computational software and Rstudio is the integrated development environment (IDE), a set of tools built to help you be more productive with R.
+:::
+
+Another common alternative IDE to Rstudio is [Visual Studio Code](https://code.visualstudio.com/docs/languages/r).
+
+
+### You need the following packages
+```{r install_packages}
+#| label: install_packages
+#| eval: false
+
+install.packages("tidyverse") #<1>
+install.packages("data.table") #<1>
+install.packages("purrr") #<2>
+install.packages("terra") #<3>
+install.packages("sf") #<3>
+install.packages("exactextractr") #<4>
+install.packages("tidyterra") #<5>
+install.packages("haven") #<6>
+install.packages("furrr") #<7>
+install.packages("SPEI") #<8>
+install.packages("clock") #<9>
+```
+1. data manipulation
+2. list manipulation
+3. spatial data operations
+4. fast extraction for polygons
+5. manipulation the attribute data of spatial vector 
+6. handling of STATA dta
+7. parallel computation
+8. calculation of the Standardized Precipitation-Evapotranspiration Index
+9. date and time manipulation
+
+
+### You need to install climate4economist
+
+```{r install_climate4economist}
+#| label: install_climate4economist
+#| eval: false
+
+devtools::install_local(file.path("path_to_the_zip_file", "climate4economist.zip"))
+```
+

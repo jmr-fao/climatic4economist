@@ -1,0 +1,323 @@
+---
+title: "4: Compute the Standardize Precipitation Index based on spatial polygons"
+---
+
+<br>
+
+## Introduction
+
+In this tutorial, we extract the CHIRPS precipitation observations in Suriname, based on the administrative divisions of the Suriname Survey of Living Conditions for the years 2016/17 and 2022. Based on the extracted precipitation, the tutorial shows how to compute the Standardized Precipitation Index (SPI) and merge it with the survey based on the date of interviews.
+
+## Code
+### Set Up
+We start by setting up the stage for our analysis.
+
+First, we load the necessary packages. We load only `climatic4economist` package that contains several functions meant to extract and merge spatial variables with surveys. During the tutorial we will use other packages but instead of loading all the package at the begging we will call specific function each time.
+
+```{r packages}
+#| label: packages
+#| output: false
+
+library(climatic4economist)
+```
+
+In the setup, we also want to create the paths to the various data sources and load the necessary functions for extraction. Note `..` means one step back to the folder directory, i.e. one folder back.
+
+Note that how to set up the paths depends on your folder organization but there are overall two approaches: 
+
+1. you can use the `R project`, by opening the project directly you don't need to set up the path to the project. Automatically the project figures out on its own where it is located in the computer and set that path as working folder. 
+2. you can manually set the working folder with the function `setwd()`.
+
+```{r paths}
+#| label: paths
+
+# path to data folder
+path_to_data <- file.path("..", # <1>
+                          "..", "data") # <2>
+
+# survey 
+path_to_wave_1 <- file.path(path_to_data, "survey", "surname", "wave 1",
+                            "RT001_Public.dta")
+
+path_to_wave_2 <- file.path(path_to_data, "survey", "surname", "wave 2", 
+                            "2022 RT001_Housing_plus.dta")
+
+# administrative division
+path_to_adm_div <- file.path(path_to_data, "adm_div", "GAUL")
+
+# weather variables
+path_to_pre_monthly <- file.path(path_to_data, "weather", "CHIRPS", "monthly",
+                                 "chirps-v2.0.monthly.nc")
+# to result folder
+path_to_result <- file.path(path_to_data, "result")
+```
+1. concatenate the string to make a path
+2. `..` means one folder back
+
+<br>
+
+### Read the data
+#### Survey
+We begin by reading the surveys, which in this case consist of two waves with potentially different locations. As a result, we need to load both waves. The waves are stored as `dta` files, so we use the `haven::read_dta()` function to read them.
+
+We only need the hhid, the survey coordinates, and the interview dates. We use `dplyr::select()` to choose these variables. This passage is optional and we bring with us all the variables, but we won't use them. Note that the first wave does not include the interview date.
+
+We combine the two waves using `dplyr::bind_rows()`.
+
+We can use the `head()` function to preview the data and see how it looks.
+
+```{r read_surveys}
+#| label: read_surveys
+
+wave_1 <- haven::read_dta(path_to_wave_1) |>
+    dplyr::select(hhid, lat_cen, long_cen) |> 
+    dplyr::mutate(wave = 1)
+
+wave_2 <- haven::read_dta(path_to_wave_2) |>
+    dplyr::select(hhid, end_date_n, lat_cen, long_cen) |>
+    dplyr::mutate(wave = 2)
+
+survey <- dplyr::bind_rows(wave_1, wave_2)
+
+head(survey)
+```
+
+#### Aministrative Divisions
+We read the spatial file containing the national borders of Suriname, we use `read_GAUL()` to load it. By printing the spatial data, we can obtain key information, such as the dimensions (number of rows and variables), the geometry (which indicates the type of spatial object), and the coordinate reference system (CRS), which links the coordinates to precise locations on the Earth's surface. The CRS is particularly important when working with different spatial datasets, as mismatched CRSs can prevent the datasets from aligning correctly.
+
+```{r read_adm_div}
+#| label: read_adm_div
+
+adm_div <- read_GAUL(path_to_adm_div, iso = "SUR", lvl = 2)
+adm_div
+```
+
+#### Weather
+Finally, we load the precipitation data. Climatic data typically comes in the form of raster data. A raster represents a two-dimensional image as a rectangular matrix or grid of pixels. These are spatial rasters because they are georeferenced, meaning each pixel (or "cell" in GIS terms) represents a square region of geographic space. The value of each cell reflects a measurable property (either qualitative or quantitative) of that region. In this case, the values are monthly precipitation that fell in that region. We use the function `terra::rast()` to load the raster data.
+
+This particular raster has global coverage, so we crop it to focus on the country area to reduce its size. Although this step is not strictly necessary, it helps decrease the memory load and makes visualizations more manageable. We use the function `crop_with_buffer()` for this purpose.
+
+When we print the raster, we obtain several key details. The dimension tells us how many cells the raster consists of and the number of layers, each layer corresponds to a particular months for which the observations were made. We also get the spatial resolution, which defines the size of each square region in geographic space, and the coordinate reference system (CRS). Given the importance of the CRS, we extract it using `terra::crs()` and save it for later use.
+
+We also rename the raster layers to reflect the corresponding dates for each layer, as this is useful if we want to track the dates. We use `terra::time()` to extract the dates.
+
+::: {.callout-note}
+Note that rasters can store time information in different ways, so it may not always be possible to retrieve dates in this manner. A common alternative is for dates to be embedded in the layer names, in which case we wouldn’t need to rename the layers.
+:::
+
+```{r read_pre_monthly}
+#| label: read_pre_monthly
+
+weather_monthly <- terra::rast(path_to_pre_monthly) |>
+    crop_with_buffer(adm_div)
+weather_monthly
+
+names(weather_monthly) <- terra::time(weather_monthly)
+weather_monthly
+```
+
+<br>
+
+### Georeference the survey
+
+As we've mentioned, the weather data is georeferenced, so we need to ensure the same for the survey data. Since many households share the same coordinates, they are linked to the same weather events. To reduce computation time, we extract data only for the unique coordinates, rather than for each household. Moreover, we must ensure that we can later associate the correct weather data with the right household, we do this by creating an merging variable called `ID`.
+
+This is handled by the `prepare_coord()` function, which requires the coordinates' variable names as input.
+
+We can print the result to check the transformation. The new column, `ID`, is created by `prepare_coord()` and identifies each unique coordinate. This is used to merge the weather data with the household data.
+
+```{r prepare_coord}
+#| label: prepare_coord
+
+srvy_coord <- prepare_coord(survey, lat_var = lat_cen, lon_var = long_cen)
+srvy_coord
+```
+
+Once we have the unique coordinates, we are ready to transform them into spatial points using the `georef_coord()` function. When performing this transformation, it's crucial to set the correct CRS, which must match that of the weather data. The CRS is provided as an argument of the function, using the previously saved CRS from the weather data. Also the `georef_coord()` function requires the coordinates' variable names as input.
+
+```{r georef_coord}
+#| label: georef_coord
+
+srvy_geo <- georef_coord(srvy_coord,
+                          geom = c("long_cen", "lat_cen"),
+                          crs = "EPSG:4326")
+srvy_geo
+```
+
+<br>
+
+### PLot
+A good practice when working with spatial data is to plot it. This is the best way to verify that everything is working as expected.
+
+First, we plot the survey coordinates to ensure they are correctly located within the country and to examine their spatial distribution.
+
+```{r plot_survey_geo}
+#| label: plot_survey_geo
+
+terra::plot(adm_div, col = "grey", main = "Suriname and PSU centroids")
+terra::points(srvy_geo, col = "gold", alpha = 0.5, cex = 0.5)
+srvy_geo |> 
+    tidyterra::filter(ID %in% c("21", "22", "652")) |>
+    terra::text("ID", halo = TRUE, hc = "blue", col = "white", hw = 0.2)
+```
+
+We confirm that the survey locations are within the country borders, which is great! We also observe that the spatial distribution of survey coordinates is neither random nor uniform; most are concentrated near the capital and along the coast.
+
+However, some coordinates falls outside the administrative division, we highlights them with the blue halo. It may difficult to see them without the zoom , but it is worth notice that as it has consequences for which administrative division to associate them.
+
+::: {.callout-notes}
+In many microeconomics applications some coordinates fall outside the national order of the country, this might happen for various reasons. Sometimes, the coordinates are modified to guarantee anonimacy of the household and the modification bring the coordinates outside the borders, other time it is just an error of the GPS, or the borders maps are not enought precise.
+:::
+
+Next, we plot a layer of the precipitation data to see how it overlaps with the spatial coordinates.
+
+```{r plot_precipitation}
+#| label: plot_precipitation
+
+terra::plot(weather_monthly, "2024-10-01", col = terra::map.pal("water"),
+            main = "Monthly precipitation at 2024-10 and survey location")
+terra::lines(adm_div, col = "white", lwd = 2)
+terra::points(srvy_geo, col = "red", alpha = 0.5, cex = 0.5)
+```
+
+Once again, the survey coordinates align with the precipitation data, which is great! We can also observe the high spatial resolution of the CHIRPS dataset. However, despite this high resolution, some survey coordinates still fall within the same cell.
+
+<br>
+
+### Merge administrative division and survey
+We want to associated the survey location to the administrative divisions. We do it by looking in which administrative division each survey location fall in. We save this information for later use.
+
+```{r merge_adm_srvy}
+#| label: merge_adm_srvy
+
+srvy_adm_div <- get_poly_attr_for_point(point = srvy_geo, poly = adm_div)
+srvy_adm_div
+```
+
+<br>
+
+### Extraction
+For weather data, we use a different function for extracting the data, namely `extract_cell_by_poly()`. This function doesn't aggregate the values within the polygons but extract each all the cell values within the division separately. This is important as we want to compute the SPI for each cell and only later aggregate them.
+
+::: {.callout-note}
+To extract each cells is more computationally and memory demanding, especially with large countries and long time series, but it increases precision as the aggregation, thus lost of information, is done at very last stage of the process.
+:::
+
+Looking at the result, we see first the `ID_adm_div` column, that identifies the unique administrative divisions. The second and third column are the coordinates of the cells. The fourth is the amount of the cell that actually falls within the administrative division. The other columns contain the weather observations over time specific to each cell.
+
+```{r extraction_adm_weather}
+#| label: extraction_adm_weather
+#| output: false
+
+pre_cell <- extract_cell_by_poly(weather_monthly, adm_div)
+```
+
+```{r print_pre_cell}
+#| label: print_pre_cell
+
+pre_cell
+```
+
+### Compute the SPI
+We now compute the SPI with the function `compute_spi()`. This function requires the precipitation time series for each location and the time scale at which the SPI is computed.
+
+To compute the SPI, it is recommended to use at least 30 years of observation to ensure a good estimation of the parameters. More years can strength the estimation but the results can be affected by climate change: if there have been a change in the climate parameters, old observations might be not indicative of the current situation affecting the estimation. There are no clear rule on this, so we leave add the possibility to select the time range of observation with the function `select_by_dates()`. The function requires both or just one between the starting date, `from`, and the end date `to`. If both are provide the the function select between the two dates, if only `from` is provided the function selects all date after, and if only `to` is provided the function selects all date before.
+
+Looking at the result, we see first is the `ID_adm_div` column, that we will use to merge back with the survey. Then we have the coordinates of each cell and the coverage fraction of the cell within the administrate border. The other columns contain the SPI observations over time, specific to each coordinate.
+
+```{r compute_spi3}
+#| label: compute_spi3
+#| warning: false
+
+# coord  <- select_by_dates(coord, from = "1991-01-01", to = "2023-01-01") 
+
+spi3 <- compute_spi(pre_cell, time_scale = 3)
+spi3
+```
+
+If we want to calculate the SPI with time scale equal to one, we just need to change the `time_scale` argument.
+
+<br>
+
+### Agregate at the adiministrative divisions
+We have computed the climatic parameters for each cells but we still need to aggregate them at the administrative divisions. The function `agg_to_adm_div()` can do it for us, be aware the the function aggregate by using the weighted mean, where the weights are provided by the `coverage_fraction` variable. 
+
+The argument `match_col` identifies which columns are aggregated. In this case we want to select all dates observation, so we define the pattern to look for as any number `[0-9]` repeated four time `{4}`.
+
+In the results we lose the the information on the specific cells and we are left only with the administrative division id, `ID_adm_div`, and a single value of the climatic parameters for each locations.
+
+```{r cell_to_div}
+#| label: cell_to_div
+
+spi3_adm <- agg_to_adm_div(spi3, match_col = "[0-9]{4}")
+
+spi3_adm
+```
+
+<br>
+
+### Merge with survey
+
+Now, we combine the extracted weather data with the survey data.
+
+However, the surveys do not carry information on the administrative division we have used, therefore we need an additional step to provide this information. We calculated this link information before and save it as `srvy_adm_div`.
+We first merge the link information with the spatial extracted variables, the output is then merge with the survey. Note that the pipe command `|>` assumes that the left side is the first argument in the function, as it is not the case for us we need to specify it with `y = _`, where `y` is the name of the argument and `_` refer to the previous merge.
+
+We can see that the result has all the information we retained from the surveys, the information about the administrative divisions, and the new extracted spatial variables.
+
+```{r merge_adm_survey}
+#| label: merge_adm_survey
+ 
+srvy_spi3_adm <- dplyr::inner_join(srvy_adm_div, spi3_adm, by = "ID_adm_div") |> # <1>
+    merge_by_common(srvy_coord, y = _) # <2>
+srvy_spi3_adm
+```
+1. merge adm info with spatial var
+2. `_` refers to the output of the previous merge 
+
+We are back at `r nrow(srvy_spi3_adm)`, which matches the original survey.
+
+<br>
+
+### Select based on the interview
+Now that we have merged the SPI values with the survey, we can select just the relevant observations.
+
+If we want to select just a subsets of observations we can use the `select_by_dates()` function. If we want to select based on the date of interview of the survey, we can use `select_by_interview()`. This last function requires the variable that contains the dates of interview and the interval to select based on the dates. The interval must be express in number of months or in number years. The `wide` argument specifies how the output should be reported, in wide with each time observation as separate columns, or long, with all observation in one column.
+
+>Note that current version of the `select_by_interview()` functions drops the observations with missing date of interview.
+
+What is relevant depends on the particular application, but we can agree that we don't want to assign weather observations that happened after the interviews, as these cannot influence the answers.
+
+In this tutorial we select the 12 months before the interviews using the function `select_by_interview()`. The argument `interview` select the variable containing the date of interviews, and the argument `interval` defines how back in time the function needs to select the observations.
+
+If there are missing observations for the date of interviews, the function warns us that these observations are dropped.
+
+```{r select_by_interview}
+#| label: select_by_interview
+
+
+
+spi3_hh <- select_by_dates(srvy_spi3_adm, "2020-01-01", "2023-01-01") |>
+    select_by_interview(interview = end_date_n,
+                        interval = "1 year",
+                        wide = FALSE)
+spi3_hh
+```
+
+<br>
+
+### Save
+
+The final step of the code is to save the result. In this case, we save it as a `dta` file using the `haven::write_dta()` function.
+
+
+```{r write_data}
+#| label: write_data
+#| eval: false
+
+haven::write_dta(spi3_hh, file.path(path_to_result, "spi_3_adm.dta"))
+
+```
+
+<br><br>
+

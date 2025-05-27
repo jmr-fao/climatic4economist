@@ -1,0 +1,488 @@
+---
+title: "Control Variables for the Villages of Afghanistan"
+author: "JMR"
+toc: true
+toc-expand: 1
+toc-depth: 2
+format:
+  html:
+    self-contained: true
+    code-tools: true
+    toc-location: right-body
+  docx: 
+    toc-location: body
+editor: source
+editor_options:
+  chunk_output_type: console
+vignette: >
+  %\VignetteIndexEntry{Vignette's Title}
+  %\VignetteEncoding{UTF-8}
+  %\VignetteEngine{quarto::html}
+---
+
+## Introduction
+This guide provides a step-by-step approach to extract spatial variables based on village location and the area around them.
+
+## What do I need before starting?
+
+The following R packages are necessary: `tidyverse`, `haven`, `clock` and `terra`. To install the above package you can use `install.packages("name_of_package")`, don't forget the `"`. You also need the package `climatic4economist` which must be installed locally.
+
+If you are not familiar with R check the [appendix] for understanding some coding style used in this tutorial.
+
+## Code
+### Set Up
+
+In the setup, we create the paths to the various data sources and load the necessary functions for extraction. Note `..` means one step back to the folder directory, i.e. one folder back.
+
+```{r set_up}
+#| label: set_up
+
+path_to_data <- file.path("..",
+                          "..", "data")
+
+path_to_village <- file.path(path_to_data, "survey", "AFG",
+                             "Village coordinates_CoF(Village level coordinates).csv")
+
+path_to_adm_div <- file.path(path_to_data, "adm_div", "UN_borders", "UN-AFG-ADM2.gpkg")
+
+
+path_to_elevation <- file.path(path_to_data, "spatial", "GloFAS",
+                               "elevation_glofas_v4_0.nc")
+path_to_urca <- file.path(path_to_data, "spatial", "URCA",
+                          "URCA.tif")
+path_to_pop <- file.path(path_to_data, "spatial", "WorldPop", "unconstrained_UNadj_1km",
+                         "AFG_ppp_2020_1km_Aggregated_UNadj.tif")
+path_to_nightlight <- file.path(path_to_data, "spatial", "VIIRS",
+                    "VNL_npp_2024_global_vcmslcfg_v2_c202502261200.average_masked.dat.tif")
+
+path_to_result <- file.path(path_to_data, "result")
+
+```
+
+We then load the wrapper function from the package `climatic4economist`.
+
+```{r package}
+#| label: package
+
+library(climatic4economist)
+```
+
+### Load the data
+Let's start by loading the data into R. As the control variables are `tif` or `nc` files we can read them with function `terra::rast()`. Note how all the data sets have the same coordinate reference system (CRS), i.e. `EPSG:4326`. This is important because in this way all the data can "spatially" talk to each other.
+
+```{r read_control}
+#| label: read_control
+
+elevation <- terra::rast(path_to_elevation)
+elevation
+
+pop <- terra::rast(path_to_pop)
+pop
+
+urca <- terra::rast(path_to_urca)
+urca
+
+nightlight <- terra::rast(path_to_nightlight)
+nightlight
+```
+
+Now we load the villages. We rename the variable for easier use.
+
+```{r read_villages}
+#| label: read_villages
+
+village <- data.table::fread(path_to_village) |> 
+    dplyr::rename(lon = "Longitude (X)",
+                  lat = "Latitude (Y)")
+village
+```
+
+We load the administrative divisions to check where the villages are. We can do this with the function `terra::vect()`. With the function `terra::aggregate()` we dissolve the polygons of each administrative divisions into a single one, i.e. the national borders.
+
+```{r read_adm_div}
+#| label: read_ad_div
+
+adm_div <- terra::vect(path_to_adm_div) |> 
+    terra::aggregate(by = "ISO3CD")
+adm_div
+```
+
+### Georeference the survey
+As we've mentioned, the weather data is georeferenced, so we need to ensure the same for the village data. 
+
+>It is very important to check if the village and the raster data share the same coordinate reference system!
+
+Usually, the WGS 84 CRS is the default coordinate references system for coordinates. In this case it  matches the weather coordinate references system.
+
+We also need to ensure that we can later associate the correct weather data with the right village, we do this by creating a merging variable called `ID`. This is handled by the `prepare_coord()` function, which requires the coordinates' variable names as input.
+
+```{r prepare_coord}
+#| label: prepare_coord
+
+village_coord <- prepare_coord(village,
+                               lon_var = lon,
+                               lat_var = lat)
+village_coord
+```
+
+Once we have the unique coordinates, we are ready to transform them into spatial points using the `georef_coord()` function. When performing this transformation, it's crucial to set the correct CRS, which must match that of the weather data. The function also the coordinates' variable names as input.
+
+```{r georef_coord}
+#| label: georef_coord
+village_geo <- georef_coord(village_coord,
+                            geom = c("lon", "lat"),
+                            crs = "EPSG:4326")
+village_geo
+```
+
+
+### Crop control to Afganistan
+Now we crop the control data to limit their extension to Afghanistan. This passage is not compulsory but by reducing the size of the data it makes them more manageable and more meaningful for visualization.
+
+```{r crop}
+#| label: crop
+
+elevation_afg <- terra::crop(elevation, adm_div)
+elevation_afg
+
+pop_afg <- terra::crop(pop, adm_div)
+pop_afg
+
+urca_afg <- terra::crop(urca, adm_div)
+urca_afg
+
+nightlight_afg <- terra::crop(nightlight, adm_div)
+nightlight_afg
+```
+
+
+### Plot
+A good practice when working with spatial data is to plot it. This is the best way to verify that everything is working as expected.
+
+```{r plot}
+#| label: plot
+
+terra::plot(elevation_afg, main = "Elevation")
+terra::lines(adm_div, col = "white", lwd = 3)
+terra::points(village_geo, col = "red")
+
+terra::plot(pop_afg, main = "Population")
+terra::lines(adm_div, col = "black", lwd = 3)
+terra::points(village_geo, col = "red")
+
+terra::plot(urca_afg, main = "URCA")
+terra::lines(adm_div, col = "white", lwd = 3)
+terra::points(village_geo, col = "red")
+
+terra::plot(log(1+nightlight_afg), main = "Log Nighttime Light")
+terra::lines(adm_div, col = "white", lwd = 3)
+terra::points(village_geo, col = "red")
+
+```
+
+### Make buffer
+We make also a buffer around the villages to capture the HH that are part of the survey. We calculate two different radius for the buffer, 5 km and 10 km.
+
+Look how the result is very similar to the `village_geo` object. However, a careful look reveal that the buffer polygons while the villages are points.
+
+```{r buffer}
+#| label: buffer
+
+village_05buf <- terra::buffer(village_geo, width = 5*1000)
+village_05buf
+
+village_10buf <- terra::buffer(village_geo, width = 10*1000)
+village_10buf
+```
+
+By plotting the buffer we notice how some villages are very close to each other and already a buffer of 5 km creates many overlaps.
+
+```{r plot_buf}
+#| label: plot_buf
+
+terra::plot(adm_div, col = "grey", main = "Buffer 5km")
+terra::lines(village_05buf, col = "red")
+
+terra::plot(adm_div, col = "grey", main = "Buffer 10km")
+terra::lines(village_10buf, col = "blue")
+```
+
+### Terrain characteristics from elevation data
+Now we compute some terrain indicators based on elevation. The terrain indicators are:
+
+* TRI (Terrain Ruggedness Index) is the mean of the absolute differences between the value of a cell and its 8 surrounding cells.
+
+* Slope is the average difference between the value of a cell and its 8 surrounding cells.
+
+* Roughness is the difference between the maximum and the minimum value of a cell and its 8 surrounding cells.
+
+```{r terrain}
+#| label: terrain
+
+terrain_indices <- terra::terrain(elevation_afg,
+                                  v = c("slope", "TRI", "roughness"),
+                                  neighbors = 8, 
+                                  unit = "degrees") 
+
+terrain_indices
+```
+
+### Extraction
+Now we extract the spatial controls based on the village location and the buffers.
+
+We start with the villages. Since there are many spatial variable we take advantage of the `purrr` package to apply the `extract_by_coord()` function to each one of them. To do so we first collect all the spatial variables into a list. Then we extract the values and we merge them into one data frame by combining the function`prrr::reduce()` and the function `dplyr::full_join()`.
+
+Then we rename some of the spatial variable to be more readable and we add the logarithmic transformation of the nighttime light.
+
+```{r extraction_village}
+#| label: extraction_village
+
+sp_control <- list(terrain_indices, 
+                   elevation_afg, 
+                   urca_afg, 
+                   nightlight_afg, 
+                   pop_afg)
+
+sp_control_village <- purrr::map(sp_control,
+                                 extract_by_coord,
+                                 coord = village_geo) |> 
+    purrr::reduce(dplyr::full_join, by = "ID") |> 
+    dplyr::select(-dplyr::matches("x_cell|y_cell")) |> 
+    dplyr::rename_with(.cols = dplyr::starts_with("VNL_npp"),
+                       .fn = ~"night_light") |> 
+    dplyr::rename_with(.cols = dplyr::starts_with("AFG_ppp_2020"),
+                       .fn = ~"pop") |> 
+    dplyr::mutate(night_light_ln = log(1 + night_light),
+                  .after = night_light)
+
+sp_control_village
+```
+
+Now we move to the buffer. The logic is the same of the extraction for the villages. The difference is that now we use the function `extract_by_poly()` for the extraction, as the buffers are polygons. This function requires an extra argument `fn_agg`. This argument tells how the values should be aggregated withing the polygon. We also separate population from the other the spatial controls as the `fn_agg` is different: we use `sum` for population and `mean` for the other variables.
+
+```{r extraction_buffer}
+#| label: extraction_buffer
+
+sp_control_mean <- list(terrain_indices, elevation_afg, nightlight_afg)
+
+sp_mean_05buf <- purrr::map(sp_control_mean,
+                            extract_by_poly,
+                            poly = village_05buf,
+                            fn_agg = "mean") |> 
+    purrr::reduce(dplyr::full_join, by = "ID") |> 
+    dplyr::rename_with(.cols = dplyr::starts_with("VNL_npp"),
+                       .fn = ~"night_light") |> 
+    dplyr::mutate(night_light_ln = log(1 + night_light),
+                  .after = night_light)
+
+pop_05buf <- extract_by_poly(pop_afg,
+                             village_05buf,
+                             fn_agg = "sum") |> 
+    dplyr::rename_with(.cols = dplyr::starts_with("AFG_ppp_2020"),
+                       .fn = ~"pop")
+
+sp_mean_10buf <- purrr::map(sp_control_mean,
+                            extract_by_poly,
+                            poly = village_10buf,
+                            fn_agg = "mean") |> 
+    purrr::reduce(dplyr::full_join, by = "ID") |> 
+    dplyr::rename_with(.cols = dplyr::starts_with("VNL_npp"),
+                       .fn = ~"night_light") |> 
+    dplyr::mutate(night_light_ln = log(1 + night_light),
+                  .after = night_light)
+
+pop_10buf <- extract_by_poly(pop_afg,
+                             village_10buf,
+                             fn_agg = "sum") |> 
+    dplyr::rename_with(.cols = dplyr::starts_with("AFG_ppp_2020"),
+                       .fn = ~"pop")
+```
+
+
+### Merge with villages
+Now, we combine the extracted data with the village data using `ID` as the key matching variable.
+
+```{r merge_with_village}
+#| label: merge_with_village
+
+sp_village <- merge_with_survey(village_coord, sp_control_village)
+
+sp_05buffer <- dplyr::full_join(sp_mean_05buf, pop_05buf, by = "ID") |> 
+    merge_with_survey(village_coord, new_value = _)
+
+sp_10buffer <- dplyr::full_join(sp_mean_10buf, pop_10buf, by = "ID") |> 
+    merge_with_survey(village_coord, new_value = _)
+```
+
+### Save
+The final step of the code is to save the result. In this case, we save it as a `dta` file using the `haven::write_dta()` function. Then we need to  align the variables' name to the STATA format with the function `to_stata_format()`. We also remove the fifth column as the name cannot be aligned with the STATA format, and finally we save the result.
+
+```{r save}
+#| label: save
+
+sp_village |> 
+  dplyr::select(-dplyr::starts_with("Treatment")) |> 
+  dplyr::rename_with(to_stata_format) |>
+  haven::write_dta(file.path(path_to_result, "afg_village_sp_control.dta"))
+
+sp_05buffer |> 
+  dplyr::select(-dplyr::starts_with("Treatment")) |> 
+  dplyr::rename_with(to_stata_format) |>
+  haven::write_dta(file.path(path_to_result, "afg_05buf_sp_control.dta"))
+
+sp_10buffer |> 
+  dplyr::select(-dplyr::starts_with("Treatment")) |> 
+  dplyr::rename_with(to_stata_format) |>
+  haven::write_dta(file.path(path_to_result, "afg_10buf_sp_control.dta"))
+
+```
+
+
+## Appendix
+### New to R? Read this first!
+#### The pipe command
+
+The pipe command `|>`. It lets you pass the result of one expression as the first argument to the next. It creates a fluid chain of functions.
+
+Instead of nesting functions inside each other, you can pipe the output forward, making the code easier to read.
+
+```{r}
+4 |> log() |> exp()
+
+exp(log(4))
+```
+
+Note:
+
+* The base R pipe `|>` was introduced in R 4.1.0.
+
+* In some tutorials, you might also see `%>%`, which comes from the `magrittr` or `dplyr` packages. Both do a similar thing, but `|>` is now the official base R version.
+
+#### The package namespaces
+In R, namespaces help organize functions inside packages.
+
+You can use a function from a specific package by writing: `package_name::function_name()`. 
+
+As the name suggests, namespaces provide "spaces" for "names", it tells R exactly where to find a function. They provide a context for looking up the value of an object associated with a name. When we write `terra::vect()` we are asking R to look for the function `vect()` in the `terra` package.
+
+This is a fairly advanced topic, and by-and-large, not that important! When you first start using namespaces, it'll seem like a lot of work for little gain. However, having a high quality namespace helps encapsulate your package and makes it self-contained. This ensures that other packages won't interfere with your code, that your code won't interfere with other packages, and that your package works regardless of the environment in which it's run.
+
+You don't always need to write the namespace every time. A very common practice is to load the necessary packages at the beginning of your script (in the set up section for example) with `library()`. This is actually the most known and common approach. 
+
+To do so just add `library(name_of_package)`, for example `library(terra)`. Then we can just call the function without the name space, like this `vect()`.
+
+#### The assign operator
+
+The assign operator `<-`. This is a peculiarity of R and it is used to assign values to variables. However, `<-` is preferred in R scripts because it makes assignments visually distinct from comparisons (`==`) and function arguments (`=`).
+
+Note that the operators `<-` and `=` can be used, almost interchangeably. However, inside function calls, you should use `=` to name arguments.
+
+#### Functions
+In Stata, you're used to running do-files or programs to automate tasks. In R, functions play a similar role: they help you organize code and reuse it easily.
+
+A function in R looks like this:
+```{r fn_body}
+#| labek: fn_body
+#| eval: false
+
+my_function <- function(input1, input2) {
+  # Do something with the inputs
+  result <- input1 + input2
+  return(result)
+}
+```
+
+* `my_function` is the function's name.
+
+* `function(input1, input2)` defines what inputs (arguments) it takes.
+
+* Inside `{}`, you write the code that runs when you call the function.
+
+* `return(result)` tells R what the output should be.
+
+You call the function like this:
+```{r fn_out}
+#| label: fn_out
+#| eval: false
+
+my_function(3, 5)
+# Output: 8
+```
+
+Note that you can change the order of the inputs if you properly label them.
+```{r fn_out2}
+#| label: fn_out2
+#| eval: false
+
+my_function(input2 = 5, input1 = 3)
+# Output: 8
+```
+
+Key points for Stata users:
+
+* Functions in R must be assigned to a name using <- (the assignment operator).
+
+* You can think of functions a little like Stata's program define, but in R, every function can return a value to be used later.
+
+* You can nest functions inside other code, making your analysis scripts cleaner and easier to read.
+
+
+### Want to know about the data?
+
+#### Elevation
+Elevation from the auxiliary variables of GloFAS. The value are the mean height elevation above sea level for each pixel.
+
+| Parameter           | Value                   |
+|:--------------------|:-----------------------:|
+| spatial resolution  | 0.03° x 0.03° lon lat   |
+| temporal resolution | 1981-2010               |
+| unit of measure     | m                       |
+
+It is possible to find additional information [here](https://cds.climate.copernicus.eu/cdsapp#!/dataset/cems-glofas-forecast?tab=overview) and the technical and information [here](https://www.globalfloods.eu/technical-information/products/). 
+The data can be freely download from [here](https://confluence.ecmwf.int/display/CEMS/Auxiliary+Data).
+
+    
+#### Population
+WorldPop: Estimated number of people per pixel.
+
+The units are number of people per pixel with country totals adjusted to match the corresponding official United Nations population estimates that have been prepared by the Population Division of the Department of Economic and Social Affairs of the United Nations Secretariat. The mapping approach is Random Forest-based dasymetric redistribution,
+
+| Parameter           | Value                   |
+|:--------------------|:-----------------------:|
+| spatial resolution  | 30 arc second (~1km)    |
+| temporal resolution | yearly                  |
+| time frame          | 2020                    |
+| unit of measure     | number of people        |
+
+It is possible to find additional information [here]( https://www.worldpop.org/methods/top_down_constrained_vs_unconstrained/) and the technical and information [here](https://www.worldpop.org/methods/populations/). 
+The data can be freely download from [here](https://hub.worldpop.org/geodata/summary?id=34984).
+
+
+#### URCA
+The 30 urban–rural catchment areas show the catchment areas around cities and towns of different sizes (the no data value is 128). Each rural pixel is assigned to one defined travel time category to one of seven urban agglomeration sizes.
+
+| Parameter           | Value                   |
+|:--------------------|:-----------------------:|
+| spatial resolution  | 0.03° x 0.03° lon lat   |
+| temporal resolution | yearly                  |
+| time frame          | 2015                    |
+| unit of measure     | travel time category    |
+
+It is possible to find additional information [here](https://www.pnas.org/doi/full/10.1073/pnas.2011990118). 
+The data can be freely download from [here](https://figshare.com/articles/dataset/Urban-rural_continuum/12579572).
+
+
+#### Nighttime light
+VIIRS nighttime lights (VNL) version V2.1: annual values obtained by from the monthly averages with filtering to remove extraneous features such as biomass burning, aurora, and background.
+
+| Parameter           | Value                     |
+|:--------------------|:-------------------------:|
+| spatial resolution  | 15 arc second             |
+| temporal resolution | year                      |
+| time frame          | 2024                      |
+| unit of measure     | nW/cm2/sr, average-masked |
+
+
+It is possible to find additional information [here](https://eogdata.mines.edu/products/vnl/). 
+The data can be freely download from [here](https://eogdata.mines.edu/nighttime_light/annual/v21/).
+

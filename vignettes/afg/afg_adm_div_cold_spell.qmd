@@ -1,0 +1,290 @@
+---
+title: "Cold Spell in Afganistan Districts"
+author: "JMR"
+toc: true
+toc-expand: 1
+toc-depth: 2
+format:
+  html:
+    self-contained: true
+    code-tools: true
+    toc-location: right-body
+  docx: 
+    toc-location: body
+editor: source
+editor_options:
+  chunk_output_type: console
+vignette: >
+  %\VignetteIndexEntry{Vignette's Title}
+  %\VignetteEncoding{UTF-8}
+  %\VignetteEngine{quarto::html}
+---
+
+## Intro
+The goal of this tutorial is to guide the user to calculate extreme weather indicator for cold temperature.
+There are two main approaches to do so. The first approach is to use absolute threshold and the second is to use relative threshold to define weather extreme. In this tutorial we will calculate both approaches. For the relative thresholds, it is common practice to use the percentile of the weather distribution. 
+
+>These percentiles were already computed in another tutorial so we directly load them. Similarly, we already extracted the weather observation based on the administrative divisions in the same tutorial, so we directly load them as well.
+
+When working with administrative divisions there are two approaches. The first approach spatially average the weather observations within each area and then calculate the percentile. The second approach calculates the percentiles for each spatial points from the weather data. The first approach is faster as it requires less memory, but it is less accurate because it average the observations. Indeed, by averaging we smooth the distribution and we lessen the role of extreme weather realizations.
+
+We use ERA5-Land temperature observations and the administrative divisions of Afghanistan.
+
+
+## Overview of Steps
+
+In this guide, we will go through the following steps:
+
+1.  Load the data
+2.  Find the weather extreme events with absolute threshold
+3.  Find the weather extreme events with relative threshold
+4.  Compute the weather extreme indicators
+5.  Merge the weather extreme indicators with the survey
+6.  Save the result
+
+## Is this guide for me?
+
+This guide provides a step-by-step approach to extract raster data based on survey locations. The target audience includes economists who may have experience with statistical software (e.g. STATA) but are less familiar with spatial data processing in R.
+
+The document is not meant to be a course on R or on how the functions work. It is just a practice example on how to extract raster data based on coordinate location. This is done by using specific functions that wrap up as many steps as possible to ensure it is easier for the user to follow.
+
+## What do I need before starting?
+
+The following R packages are necessary: `terra`, `tidyverse`, `haven`, `data.table`. To install the above package you can use `install.packages("name_of_package")`, don't forget the `"`. We also need the  package `climate4economist`, which can be installed only locally.
+
+If you are not familiar with R check the [appendix] for understanding some coding style used in this tutorial.
+
+## Code
+### Set Up
+
+In the setup, we create the paths to the various data sources and load the necessary functions for extraction. Note `..` means one step back to the folder directory, i.e. one folder back.
+
+```{r set_up}
+#| label: set_up
+path_to_tmp_min <- file.path("data", "weather", "ERA5_Land", "AFG", 
+                             "daily", "day_50_25_2m_tmp_min.rds")
+path_to_tmp_min_percentile <- file.path("data", "weather", "ERA5_Land", "AFG", 
+                                        "percentile",  "pct_80_25_2m_tmp_min.rds")
+
+path_to_cold_indices <- file.path("data", "result", "afg_adm_cold_ind_2024_09.dta")
+```
+
+```{r package}
+#| label: package
+
+library(climatic4economist)
+```
+
+### Load the data
+Let's start by loading the data into R. We load the weather observation with the function `readRDS()` as file as saved as `rds` format.
+
+We notice that both datasets have some variables in common: `ID_adm_div`, `x`, `y`, `coverage_fraction`, `ADM1NM`, and `ADM2NM`.
+
+The weather data is in wide format, where each column represent a date of observation.
+
+The percentile data has other variables, One is `month` as the percentiles are calculated separately for each month. Then we have `day_1p`, `day_5p`, and `day_10p` which are respectively the first, the fifth, and the 10th percentiles.
+
+```{r read_weather}
+#| label: read_weather
+
+tmp_min_div <- readRDS(path_to_tmp_min)|>
+  dplyr::as_tibble()
+tmp_min_div
+
+tmp_min_pct <- readRDS(path_to_tmp_min_percentile) |>
+  dplyr::as_tibble()
+tmp_min_pct
+
+tmp_min_pct |> 
+  dplyr::filter(ADM2CD == "AFG001004") |>
+  dplyr::group_by(month) |>
+  dplyr::summarise(dplyr::across(.cols = c(day_1p, day_5p, day_10p),
+                                 .fns = mean))
+```
+
+As we mention in the [Intro] there are two approaches when working with administrative divisions. One is faster but less accurate and consist of spatially average all the weather observations within the divisions as a first step, i.e. at the extraction phase. The other keeps all the weather observations separately, performs the weather extreme indicators for each of them, and only at the last phase it spatially averages them. 
+
+As you could see form the load data, we are going for this second approach. Indeed, we have both the `ID_adm_div` and the `ID` columns. Since we will compute the indicators for each weather observation we will use the `ID` column as reference. However, this column is absent for the weather observation. We can add it using the function `prepare_coord()` and by saying which are the unique coordinates of the weather observations.
+
+```{r prepare_data}
+#| label: prepare_data
+
+tmp_min_div <- prepare_coord(tmp_min_div, lon_var = x, lat_var = y)
+tmp_min_div
+```
+
+### Find absolute extreme days
+We are not interested finding the weather extremes event along all the time series but just in the last years before the survey. We select the relevant years with the function `select_by_dates()`.
+
+```{r select_dates}
+#| label: select_dates
+
+tmp_min_div_23 <- select_by_dates(tmp_min_div, 
+                                  from = "2023-01-01", to = "2024-12-31")
+tmp_min_div_23
+```
+
+To find the weather extreme events we use the functions `find_extr_abs_day()` and `find_spell()`, respectively to find cold days and cold spell. We choose the extreme temperature with the `l_thresh` argument in the `find_extr_abs_day()` function.
+
+The first columns are the unique `ID`s of the locations and the dates of observation. Then column `value` refers to the actual weather observation. After we have the extreme events. The columns that starts with `day` tell us if that day the temperature was below the threshold we indicated. The columns that start with `celsius` tells by how many degree the temperature was below the threshold. Note the name depends on the optional argument `unit`. When these columns are zero, it means that day the temperature was above the threshold.
+
+```{r find_abs_extr_day}
+#| label: find_abs_extr_day
+
+cold_day_abs <- find_extr_abs_day(tmp_min_div_23,
+                                  l_thresh = c(0, -15, -20),
+                                  unit = "celsius")
+cold_day_abs
+```
+
+The function `find_spell()` just need the extreme days calculated before to check how many time they are consecutive. Similar the result for the extreme spell has the unique `ID`s of the locations, the dates, and the actual weather observation. The rest of the columns tell us the consecutive days that the temperature was below the threshold. Specifically, it tells us this when the spell is over and its length. `NA` values refer to days with temperature above the threshold or days where the spell is not over yet. By default the function look for at least two consecutive days, you can change this behavior with the argument `min_spell`. For example, by setting `min_spell = 5` you need at least five consecutive days below the threshold.
+
+```{r find_abs_extr_spell}
+#| label: find_abs_extr_spell
+
+cold_spell_abs <- find_spell(cold_day_abs)
+cold_spell_abs
+```
+
+### Find relative extreme days
+If we want use the percentiles as extreme threshold we can use the `find_rel_extr_day()` function to look for extreme weather observation.
+
+The function requires the weather observations and the relative thresholds we want to use. Additionally we can provide also the unit of measure with the argument `unit`. This has no computational implication but it labels the result accordingly.
+
+Besides the `ID` unique identifier, the date and the weather observation, the function returns two set of variables. 
+
+* The variables that start with `day_blw_` tells us if that day the temperature was below the monthly percentile indicated by the number.
+* The variables that start with `celsius_blw_` tells us by how many degree the daily temperature exceeded the monthly percentile indicated by the number.
+
+The variables that contain `_min_` tells us if that day the temperature was below the lowest among the monthly percentiles. This means that the percentile is not specific for the month but it is the lowest of the year. In other words, it doesn't take into consideration seasonality but always compare with the extreme of the month with coldest temperature. This is useful if we want to consider an implicit upper bound for temperature. For example, in places with strong seasonality, with cold winter and hot summer, even relatively child temperature can be considered extreme in summer.
+
+```{r find_rel_ext_day}
+#| label: find_rel_ext_day
+
+cold_day_rel <- find_extr_rel_day(tmp_min_div_23,
+                                  l_thresh = tmp_min_pct,
+                                  unit = "celsius")
+cold_day_rel
+```
+
+We can calculate the cold spells, again using the function `find_spell()`. This time the argument are the extreme days calculated with the relative thresholds.
+
+The result tells us by how many days the cold spell exceeded the monthly percentile length indicated by the number. Days with `NA` values are days without any ending cold spell exceeding the thresholds. A value of zero means that the spell exactly matches the thresholds.
+
+```{r find_extr_rel_spell}
+#| label: find_extr_rel_spell
+
+cold_spell_rel <- find_spell(cold_day_rel)
+cold_spell_rel
+```
+
+To better check the result let's "zoom" on actual spells. We can see that there are some cold spells.
+
+Why do we have a cold spell with the first percentile and not for the other? Because the first percentile is more stringent than the other so it is likely that the spell is shorter, and since the result reports the length in the last day of the spell, there is no matching among the spell calculated with different thresholds.
+
+```{r spell_focus}
+#| label: spell_focus
+cold_spell_rel |> 
+  dplyr::filter(spell_blw_1p > 0)
+```
+
+We also notice how a value of 17.7 degree Celsius is still associated with a cold spell. This because the observation happened in August and a temperature of 17.7 is considered relatively very cold for that month, below the first percentile of the distribution. However, it is not absolutely an extreme cold temperature. To balance relative and absolute temperature it is possible to set an upper bound in the calculation of the percentiles. Check the argument `u_thresh` in the function `calc_pct_day()`, you can do it by writing `?calc_pct_day` in the console.
+
+### Compute the extreme weather indicator
+So far we have the full time series with the extreme events, however for the microeconomics applications we need to summarize this information into some indicators. We can achieve this using the function `extr_day_index()` and `extr_spell_index()`, respectively for summarizing the extreme days and the spell of extreme days.
+
+Both functions require the data with the extreme observations, the column name with the date of interview, the column name that uniquely identify the unit of observation, a time interval over which summarize the extreme observations, and the number of lags. Let's proceed with order.
+
+* `df`, the extreme weather observations.
+* `interview`, column name with the date of interview. This is important as we don't want to assign weather observation that happened after the household/individual interview. The interviews represent the reference date for the period of analysis. In some situation, we don't have a precise date of interview, but we still need to provide a date for the aggregation. This alternative date can be anyone, like the last date of available observations, or the last day of the year, or a custom date based on a precise calendar season.
+* `id`, column name that uniquely identify the unit of observation. This might be different form the ones we have been using so far. The column `ID` and `ID_adm_div` were appositely created to identify the unique locations. The new column `id` refers to the actual unit of the survey. The distinction is important as the different unit, even if interviewed in the same place, the date of interview can be different and hence the reference period for the summarizing of the extreme weather.
+* `interval`, starting form the date of interview how back in time should the function look for the extreme weather events. This argument must be a character like `"1 year"` if we want to summarize the year before the date of interview, or `"6 months"` if we want to summarize the last six months before the interview. Of course, `"1 year"`, `"12 months"` and `"365 days"` are all equivalent.
+* The `interval` and the date of interview define the reference period but we can have more than one reference period by going back in time. The `n_lags` argument controls for how many reference periods the function summarizes the weather extreme. This argument is optional and the default value is zero, i.e. just the first reference period.
+
+```{r extr_index}
+#| label: extr_spell_index
+cold_abs_index <- extr_day_index(cold_day_abs, 
+                                 interview = "2024-09-01",
+                                 id = ID,
+                                 interval = "1 year",
+                                 n_lags = 0)
+cold_abs_index
+
+cold_spell_abs_index <- extr_spell_index(cold_spell_abs,
+                                         interview = "2024-09-01",
+                                         id = ID,
+                                         interval = "1 year")
+cold_spell_abs_index
+
+cold_rel_index <- extr_day_index(cold_day_rel, 
+                                 interview = "2024-09-01",
+                                 id = ID,
+                                 interval = "1 year")
+cold_rel_index
+
+cold_spell_rel_index <- extr_spell_index(cold_spell_rel,
+                                         interview = "2024-09-01",
+                                         id = ID,
+                                         interval = "1 year")
+cold_spell_rel_index
+
+```
+
+### Merge with administrative division and aggregate
+Now that we have all the extreme weather indicators, we need to aggregate them for each administrative division. To do so, we need first to merge the extreme weather indicator with the administrative divisions. We achieve this using the function `merge_with_survey()`, which matches records based on the `ID` column.
+
+```{r merge_ext_event}
+#| label: merge_abs_ext_event
+
+cold_day_abs_div <- merge_with_survey(tmp_min_div, cold_abs_index) 
+cold_day_abs_div
+
+cold_spell_abs_div <- merge_with_survey(tmp_min_div, cold_spell_abs_index)
+cold_spell_abs_div
+
+cold_day_rel_div <- merge_with_survey(tmp_min_div, cold_rel_index)
+cold_day_rel_div
+
+cold_spell_rel_div <- merge_with_survey(tmp_min_div, cold_spell_rel_index)
+cold_spell_rel_div
+```
+
+Now we aggregate by administrative division. Note how the number of rows is reduced. The function `agg_to_adm_div()` recognize the administrative divisions only by `ID_adm_div`, so by default the function will discard any other information on the administrative divisions. If we want to retain other columns we can do it with the argument `extra_col`. 
+
+```{r agg_adm_div}
+#| label: agg_adm_div
+
+cold_day_abs_agg <- agg_to_adm_div(cold_day_abs_div,
+                                   extra_col = c(ADM1CD, ADM1NM,
+                                                 ADM2CD, ADM2NM))
+cold_day_abs_agg
+
+cold_spell_abs_agg <- agg_to_adm_div(cold_spell_abs_div,
+                                     extra_col = c(ADM1CD, ADM1NM,
+                                                   ADM2CD, ADM2NM))
+cold_spell_abs_agg
+
+cold_day_rel_agg <- agg_to_adm_div(cold_day_rel_div,
+                                   extra_col = c(ADM1CD, ADM1NM,
+                                                 ADM2CD, ADM2NM))
+cold_day_rel_agg
+
+cold_spell_rel_agg <- agg_to_adm_div(cold_spell_rel_div,
+                                     extra_col = c(ADM1CD, ADM1NM,
+                                                   ADM2CD, ADM2NM))
+cold_spell_rel_agg
+```
+
+### Write
+Now that we have the cold spell indices we can save the results as `dta` using the `haven::write_dta()` function. To avoid having too many datasets, we first merge all the different indicators. Then we adapt the name to be aligned with the STATA format, we delate the fifth column as the name cannot be aligned with the STATA format, and finally we save the result.
+
+```{r write}
+#| label: write
+
+list(cold_day_abs_agg, cold_day_rel_agg, cold_spell_abs_agg, cold_spell_rel_agg) |>
+  purrr::reduce(dplyr::full_join,
+                by = c("ID_adm_div", "ADM1CD", "ADM1NM", "ADM2CD", "ADM2NM", "lag")) |>
+  dplyr::rename_with(to_stata_format) |>
+  haven::write_dta(path_to_cold_indices)
+```
+

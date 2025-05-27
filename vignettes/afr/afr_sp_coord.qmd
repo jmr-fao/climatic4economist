@@ -1,0 +1,438 @@
+---
+title: "Control Variables for the World Bank Project"
+author: "JMR"
+toc: true
+toc-expand: 1
+toc-depth: 2
+format:
+  html:
+    self-contained: true
+    code-tools: true
+    toc-location: right-body
+  docx: 
+    toc-location: body
+editor: source
+editor_options:
+  chunk_output_type: console
+vignette: >
+  %\VignetteIndexEntry{Vignette's Title}
+  %\VignetteEncoding{UTF-8}
+  %\VignetteEngine{quarto::html}
+---
+
+## Introduction
+This tutorial show how too extract spatial control variables based on surveys locations. All the surveys in this tutorial belong to African countries and were obtained by the [The World Bank Living Standards Measurement Study (LSMS)](https://www.worldbank.org/en/programs/lsms).
+
+## Code
+### Set Up
+We start by setting up the stage for our analysis. 
+First, we load the necessary packages. We load only `climatic4economist` package that contains several functions meant to extract and merge spatial variables with surveys. During the tutorial we will use other packages but instead of loading all the package at the begging we will call specific function each time.
+
+```{r packages}
+#| label: packages
+
+library(climatic4economist)
+```
+
+Then, we defines the paths to reach the surveys and spatial data.
+```{r paths}
+#| label: paths
+
+path_to_data <- file.path(#"..",
+                          "..", "data")
+
+path_to_survey <- file.path(path_to_data, "survey", "AFR")
+
+path_to_pre <- file.path(path_to_data, "weather", "ERA5_Land", "AFR", "monthly",
+                         "afr_month_50_25_tpr.nc")
+path_to_tmp <- file.path(path_to_data, "weather", "ERA5_Land", "AFR", "monthly",
+                         "afr_month_50_25_tmp.nc")
+
+path_to_elevation <- file.path(path_to_data, "spatial", "elevation", "GloFAS",
+                               "elevation_glofas_v4_0.nc")
+path_to_urca <- file.path(path_to_data, "spatial", "URCA",
+                          "URCA.tif")
+path_to_pop <- file.path(path_to_data, "spatial", "population", "WorldPop", "uncontraint_1km_global")
+path_to_nightlight <- file.path(path_to_data, "spatial", "nighttime_light", "VIIRS")
+path_to_aez <- file.path(path_to_data, "spatial", "AgroEcological", "AEZ", "GAEZv5", 
+                         "GAEZ-V5.AEZ33-10km.tif")
+
+path_to_adm_div <- file.path(path_to_data, "adm_div", "geoBoundaries")
+path_to_result <- file.path(path_to_data, "result")
+```
+
+### Read the Data
+#### Survey Data
+We start by reading the surveys data. The surveys must have an id that uniquely identifies the household and the coordinates of their interviews.
+
+The next steps are a bit convoluted. Lets split one by one.
+
+  1. `list.files(path_to_survey, full.names = TRUE)`. The surveys are stored in two files. We use `list.files()` to list the files.
+  2. `lapply(haven::read_dta)`. We use the `lapply()` to apply to each of them the function `haven::read_dta()`. This last function actually read `dta` files into R. The result are two separate block of data, each for each file. They are two separated item within a list. 
+  3. Since the data is still split, we need to use again `lapply()` to apply the function `dplyr::select()` to each block. `dplyr::select()` select the columns from a dataset. Which columns? `c(country, hhid, lat, lon, interview_date)`.
+  4. At this point we can bind the two separate data into a single one with the function `dplyr::bind_rows()`. We could have done it before but like this we ensured the two datasets have the same columns.
+  5. Now we want to define the year of each survey and a label for the surveys.
+
+```{r read_survey}
+#| label: read_survey
+
+srvy_all <- list.files(path_to_survey, pattern = "dta$", full.names = TRUE) |>
+  lapply(haven::read_dta) |>
+  lapply(dplyr::select, c(country, hhid, lat, lon, interview_date)) |>
+  dplyr::bind_rows() |> 
+  dplyr::group_by(country) |>
+  dplyr::mutate(interview_date = clock::date_parse(interview_date, format = "%d/%m/%Y"),
+                survey_year = clock::get_year(median(interview_date)),
+                survey = paste0(country, substr(survey_year, 3, 4)),
+                survey = gsub(" ", "", survey),
+                .before = hhid) |>
+  dplyr::filter(!is.na(lat) & lat > -999999999) |>
+  dplyr::filter(lat != 0.00000 & lon != 0.00000)
+
+```
+
+We can keep all the surveys together but the size can be a challenge. Therefore, we split them with the function `dplyr::group_split()`. Now, each survey is a separate block, but they are all stored in the same list.
+
+```{r split_survey}
+#| label: split_survey
+surveys <- srvy_all$survey |> unique() |> sort()
+surveys
+
+srvy_cntry <- srvy_all |>
+  dplyr::group_by(survey) |>
+  dplyr::group_split() |>
+  setNames(surveys)
+
+srvy_cntry
+```
+
+#### Spatial Data
+To spatial data is stored as `tiff` file or `nc`. We can read both of them them with the function `terra::rast()`.
+
+Note how all the data sets have the same coordinate reference system (CRS), i.e. `EPSG:4326`. This is important because in this way all the data can "spatially" talk to each other.
+
+```{r read_spatial}
+#| label: read_spatial
+
+pop <- list.files(path_to_pop , full.names = TRUE) |>
+  lapply(terra::rast) |>
+  setNames(c("pop_2018", "pop_2019", "pop_2020")) |>
+  terra::rast()
+
+nightlight <- list.files(path_to_nightlight, pattern = "20[12][891].*tif$", full.names = TRUE) |>
+  lapply(terra::rast) |>
+  setNames(c("nightlight_2018", "nightlight_2019", "nightlight_2021")) |>
+  terra::rast()
+
+elevation <- terra::rast(path_to_elevation)
+urca <- terra::rast(path_to_urca)
+aez <- terra::rast(path_to_aez)
+
+pre <- terra::rast(path_to_pre)
+names(pre) <- terra::names(pre) |> second_to_date()
+
+tmp <- terra::rast(path_to_tmp)
+names(tmp) <- terra::names(tmp) |> second_to_date()
+```
+
+#### Administrative Boundaries
+We now move to read the administrative divisions. We use the function `read_geoBoundaries()` to do so. This function looks for spatial polygons for the `iso` and `lvl` provided provided.
+
+Even if we have the coordinates from the survey, we will extract some spatial variables at the administrative division.
+
+```{r read_adm_div}
+#| label: read_adm_div
+
+adm_div <- read_geoBoundaries(path_to_adm_div,
+                        iso = c("BFA", "MLI", "TGO", "MWI", "ETH"),
+                        lvl = 2) |>
+  setNames(c("BurkinaFaso22", "Ethiopia19", "Mali22", "Malawi19", "Togo22" ))
+adm_div <- adm_div[sort(names(adm_div))]
+adm_div
+```
+
+### Crop the spatial variables
+The spatial variables variables we have just load have a global coverage. It might be convenient to reduce the coverage to just the countries we are interested in.. We can do this by using the `terra::crop()` function and the administrative divisions.
+
+```{r crop}
+#| label: crop
+
+pop_cntry <- purrr::map(adm_div, 
+                        crop_with_buffer,
+                        raster = pop,
+                        buffer = 1)
+
+nghtlght_cntry <- purrr::map(adm_div, 
+                             crop_with_buffer,
+                             raster = nightlight,
+                             buffer = 1)
+
+elevation_cntry <- purrr::map(adm_div, 
+                              crop_with_buffer,
+                              raster = elevation,
+                              buffer = 1)
+
+urca_cntry <- purrr::map(adm_div, 
+                         crop_with_buffer,
+                         raster = urca,
+                         buffer = 1)
+
+aez_cntry <- purrr::map(adm_div, 
+                        crop_with_buffer,
+                        raster = aez,
+                        buffer = 1)
+
+pre_cntry <- purrr::map(adm_div, 
+                        crop_with_buffer,
+                        raster = pre,
+                        buffer = 1)
+
+tmp_cntry <- purrr::map(adm_div, 
+                        crop_with_buffer,
+                        raster = tmp,
+                        buffer = 1)
+```
+
+### Compute Terrain Indicators
+Now we compute some terrain indicators based on elevation. The terrain indicators are:
+
+* TRI (Terrain Ruggedness Index) is the mean of the absolute differences between the value of a cell and its 8 surrounding cells.
+
+* Slope is the average difference between the value of a cell and its 8 surrounding cells.
+
+* Roughness is the difference between the maximum and the minimum value of a cell and its 8 surrounding cells.
+
+```{r terrain_indicator}
+#| label: terrain_indicator
+
+terrain_cntry <- elevation_cntry |>
+  purrr::map(terra::focal,
+             w = 5,
+             fun = "mean",
+             na.policy = "only") |>
+  purrr::map(terra::terrain,
+             v = c("slope", "TRI", "roughness"),
+             neighbors = 8, 
+             unit = "degrees")
+```
+
+
+### Weather Variable Transformation
+```{r transformation}
+#| label: transformation
+
+# From meter to millimeters
+pre_cntry_mm <- purrr::map(pre_cntry, ~ .x*1000)
+
+# From Kelvin to Celsius
+tmp_cntry_c <- purrr::map(tmp_cntry, ~ .x - 273.15)
+```
+
+### Prepare for extraction
+#### Georeference the survey
+As we've mentioned, the weather data is georeferenced, so we need to ensure the same for the survey data. 
+
+>It is very important to check if the survey data and the raster data share the same coordinate reference system!
+
+Usually, the WGS 84 CRS is the default coordinate references system for coordinates. In this case it  matches the spatial data coordinate references system.
+
+We also need to ensure that we can later associate the correct weather data with the right village, we do this by creating a merging variable called `ID`. This is handled by the `prepare_coord()` function, which requires the coordinates' variable names as input.
+
+```{r prepare_coord}
+#| label: prepare_coord
+
+
+srvy_coord <- purrr::map(srvy_cntry,
+                         prepare_coord,
+                         lon_var = lon,
+                         lat_var = lat)
+srvy_coord
+```
+
+Once we have the unique coordinates, we are ready to transform them into spatial points using the `georef_coord()` function. When performing this transformation, it's crucial to set the correct CRS, which must match that of the weather data. The function also the coordinates' variable names as input.
+
+```{r georef_coord}
+#| label: georef_coord
+
+srvy_geo <- purrr::map(srvy_coord,
+                       georef_coord,
+                       geom = c("lon", "lat"),
+                       crs = "EPSG:4326")
+
+srvy_geo
+```
+
+### Extraction
+Now we extract the spatial controls based on the survey locations. We take advantage of the `purrr` package to apply the `extract_by_coord()` function to each combination of survey and spatial control.
+
+Then we rename some of the spatial variable to be more readable and we add the logarithmic transformation of the nighttime light.
+
+```{r extraction}
+#| label: extraction
+
+nghtlght_coord <- purrr::map2(nghtlght_cntry, 
+                              srvy_geo,
+                              extract_by_coord)
+
+elevation_coord <- purrr::map2(elevation_cntry, 
+                               srvy_geo,
+                               extract_by_coord)
+
+terrain_coord <- purrr::map(terrain_cntry, 
+                            terra::focal,
+                            w = 9,
+                            fun = "mean",
+                            na.policy = "only",
+                            na.rm = TRUE) |>
+  purrr::map2(srvy_geo,
+              extract_by_coord)
+
+urca_coord <- purrr::map(urca_cntry, 
+                         terra::focal,
+                         w = 3,
+                         fun = "modal",
+                         na.policy = "only",
+                         na.rm = TRUE) |>
+  purrr::map2(srvy_geo,
+              extract_by_coord) |>
+  purrr::map(dplyr::rename, urca = focal_modal)
+
+aez_coord <- purrr::map2(aez_cntry, 
+                         srvy_geo,
+                         extract_by_coord)
+
+pre_coord <- purrr::map(pre_cntry_mm, 
+                        terra::focal,
+                        w = 3,
+                        fun = "mean",
+                        na.policy = "only",
+                        na.rm = TRUE) |>
+  purrr::map2(srvy_geo,
+              extract_by_coord)
+
+tmp_coord <- purrr::map(tmp_cntry_c, 
+                        terra::focal,
+                        w = 3,
+                        fun = "mean",
+                        na.policy = "only",
+                        na.rm = TRUE) |>
+  purrr::map2(srvy_geo,
+              extract_by_coord)
+```
+
+
+### Cmpute Climatic Parameter
+We want to describe the long run climatic condition in each locations. Rule of thumb is to consider 30 years of weather observation to capture climatic features. We select the 30 years before each survey.
+
+```{r select_by_dates}
+#| label: select_by_dates
+
+pre_coord_30yrs <- purrr::pmap(
+  list(pre_coord,
+       list("1991", "1989", "1989", "1992", "1992"),
+       list("2021", "2019", "2019", "2022", "2022")),
+  select_by_dates)
+
+tmp_coord_30yrs <- purrr::pmap(
+  list(tmp_coord,
+       list("1991", "1989", "1989", "1992", "1992"),
+       list("2021", "2019", "2019", "2022", "2022")),
+  select_by_dates)
+```
+
+Now we can compute the long run climatic parameter. We calculate the mean, the standard deviation, and the coefficient of variation.
+
+```{r cal_parameter}
+#| label: cal_parameter
+
+parameter <- c(std = sd, avg = mean, coef_var = cv)
+
+pre_par_coord <- purrr::map(pre_coord_30yrs,
+                            calc_par,
+                            pars = parameter,
+                            prefix = "tpr")
+
+tmp_par_coord <- purrr::map(tmp_coord_30yrs,
+                            calc_par,
+                            pars = parameter,
+                            prefix = "tmp")
+```
+
+
+### Merge with Survey
+We start with combining all the extracted variables and by assigning the right year of nighttime light based on the survey year. Note that for the surveys made in 2022 we assign the 2021 data. This is because the data for 2022 and before 2020 are different and it may create some bb
+
+```{r combine_data}
+#| label: combine_data
+sptl_cntrl <- list(nghtlght_coord,
+                   terrain_coord, 
+                   elevation_coord, 
+                   urca_coord, 
+                   aez_coord, 
+                   pre_par_coord, 
+                   tmp_par_coord) |>
+  purrr::transpose() |>
+  purrr::map_depth(2, dplyr::select, -dplyr::any_of(c("x_cell", "y_cell"))) |>
+  purrr::map(purrr::reduce, merge_by_common)
+
+sptl_cntrl$BurkinaFaso22 <- sptl_cntrl$BurkinaFaso22 |>
+  dplyr::select(-c(nightlight_2018, nightlight_2019)) |>
+  dplyr::rename(nightlight = nightlight_2021,
+                aez = GAEZ_V5_AEZ33_10km) |>
+  dplyr::mutate(ln_nightlight = log(1+nightlight),
+                .after = nightlight)
+
+sptl_cntrl$Ethiopia19 <- sptl_cntrl$Ethiopia19 |>
+  dplyr::select(-c(nightlight_2018, nightlight_2021)) |>
+  dplyr::rename(nightlight = nightlight_2019,
+                aez = GAEZ_V5_AEZ33_10km) |>
+  dplyr::mutate(ln_nightlight = log(1+nightlight),
+                .after = nightlight)
+
+sptl_cntrl$Malawi19 <- sptl_cntrl$Malawi19 |>
+  dplyr::select(-c(nightlight_2018, nightlight_2021)) |>
+  dplyr::rename(nightlight = nightlight_2019,
+                aez = GAEZ_V5_AEZ33_10km) |>
+  dplyr::mutate(ln_nightlight = log(1+nightlight),
+                .after = nightlight)
+
+sptl_cntrl$Mali22 <- sptl_cntrl$Mali22 |>
+  dplyr::select(-c(nightlight_2018, nightlight_2019)) |>
+  dplyr::rename(nightlight = nightlight_2021,
+                aez = GAEZ_V5_AEZ33_10km) |>
+  dplyr::mutate(ln_nightlight = log(1+nightlight),
+                .after = nightlight)
+
+sptl_cntrl$Togo22 <- sptl_cntrl$Togo22 |>
+  dplyr::select(-c(nightlight_2018, nightlight_2019)) |>
+  dplyr::rename(nightlight = nightlight_2021,
+                aez = GAEZ_V5_AEZ33_10km) |>
+  dplyr::mutate(ln_nightlight = log(1+nightlight),
+                .after = nightlight)
+
+```
+
+Now that we have all the control variables together, we can merge them with the surveys information.
+```{r merge_with_survey}
+#| label: merge_with_survey
+
+control_hh <- purrr::map2(srvy_coord,
+                          sptl_cntrl,
+                          merge_with_survey)
+```
+
+
+### Write
+Here we are at the end, let's save the results.
+
+```{r write}
+#| label: write
+
+purrr::keep_at(control_hh, c("BurkinaFaso22", "Mali22", "Togo22")) |>
+  dplyr::bind_rows() |>
+  haven::write_dta(file.path(path_to_result, "EHCVM_sp_coord.dta"))
+
+purrr::keep_at(control_hh, c("Malawi19", "Ethiopia19")) |>
+  dplyr::bind_rows() |>
+  haven::write_dta(file.path(path_to_result, "LSMS_sp_coord.dta"))
+```

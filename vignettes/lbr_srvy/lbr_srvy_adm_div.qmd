@@ -1,0 +1,234 @@
+---
+title: "Find Administrative Division from Coordinates"
+author: "JMR"
+toc: true
+toc-expand: 1
+toc-depth: 2
+format:
+  html:
+    self-contained: true
+    code-tools: true
+    toc-location: right-body
+  docx: 
+    toc-location: body
+editor: source
+editor_options:
+  chunk_output_type: console
+vignette: >
+  %\VignetteIndexEntry{Vignette's Title}
+  %\VignetteEncoding{UTF-8}
+  %\VignetteEngine{quarto::html}
+---
+
+
+## Code
+### Set Up
+```{r paths}
+#| label: paths
+
+path_to_survey <- file.path("..",
+                            "data", "survey", "LSMS_labor_survey",
+                            "labour_forYR_coordinates_new.dta")
+
+# path_adm_div <- file.path("..",
+#                           "data", "adm_div", "geoBoundaries")
+path_adm_div <- file.path("..",
+                          "data", "adm_div", "GADM")
+path_pop <- file.path("..",
+                      "data", "spatial", "WorldPop", "unconstrained_1km")
+
+path_nighttime_light <- file.path("..",
+                                  "data", "spatial", "VIIRS")
+path_to_control_adm <- file.path("..",
+                                 "data", "result", "lbr_srv_adm_control.dta")
+```
+
+```{r package}
+#| label: package
+
+library(climatic4economist)
+```
+
+### Read
+```{r read_adm_div}
+#| label: read_adm_div
+
+uga_adm <- list.files(path_adm_div, 
+                      pattern = "Uganda",
+                      full.names = TRUE) |> 
+  terra::vect()
+
+adm_div <- list.files(path_adm_div, 
+                      # pattern = "ETH|MWI|NER|NGA|TZA",
+                      pattern = "Ethiopia|Malawi|Niger|Nigeria|Tanzania",
+                      full.names = TRUE) |> 
+  # purrr::map(\(x) list.files(x, pattern = ".geojson$|gpkg$", full.names = TRUE)) |> 
+  purrr::map(terra::vect) |> 
+  setNames(c("Ethiopia19", "Malawi17", "Niger14", "Nigeria19", "Tanzania13"))
+```
+
+```{r read_survey}
+#| label: read_survey
+
+uga_srv <- haven::read_dta(path_to_survey) |>
+  dplyr::filter(survey == "Uganda16")
+
+surveys <- haven::read_dta(path_to_survey) |>
+  dplyr::filter(survey != "Uganda16") |> # 100849
+  dplyr::filter(!is.na(lon_mod) & !is.na(lat_mod)) |>
+  dplyr::select(-dplyr::starts_with("UGA"),
+                -dplyr::starts_with("AdmDiv"),
+                -year) |>
+  dplyr::distinct(survey, hhid, .keep_all = TRUE) |>
+  dplyr::group_by(survey) |>
+  dplyr::group_split() |>
+  lapply(prepare_coord, 
+         lon_var = lon_mod,
+         lat_var = lat_mod) |>
+  setNames(c("Ethiopia19", "Malawi17", "Niger14", "Nigeria19", "Tanzania13"))
+
+survey_geo <- lapply(surveys,
+                     georef_coord,
+                     geom = c("lon_mod", "lat_mod"),
+                     crs = "EPSG:4326") 
+```
+
+```{r read_pop}
+#| label: read_pop
+
+uga_pop <- list.files(path_pop, 
+                      pattern = "uga.*tif",
+                      full.names = TRUE) |> 
+  terra::rast()
+
+pop <- list.files(path_pop, 
+                  pattern = "eth.*tif|mwi.*tif|ner.*tif|nga.*tif|tza.*2013.*tif",
+                  full.names = TRUE) |> 
+  purrr::map(terra::rast) |> 
+  setNames(c("Ethiopia19", "Malawi17", "Niger14", "Nigeria19", "Tanzania13"))
+```
+
+```{r read_night_light}
+#| label: read_night_light
+
+nighttime_light <- list.files(path_nighttime_light, 
+                              pattern = "tif$",
+                              full.names = TRUE) |> 
+  purrr::map(terra::rast) |> 
+  setNames(c("2013", "2014", "2017", "2019"))
+
+night_light <- list(nighttime_light$`2019`, nighttime_light$`2017`,
+                    nighttime_light$`2014`, nighttime_light$`2019`,
+                    nighttime_light$`2013`) |> 
+  setNames(c("Ethiopia19", "Malawi17", "Niger14", "Nigeria19", "Tanzania13"))
+
+```
+
+### Prepare the survey coordinates
+```{r geo_ref}
+#| label: geo_ref
+
+surveys_id <- lapply(surveys,
+                     prepare_coord,
+                     lon_var = lon_mod,
+                     lat_var = lat_mod) 
+
+survey_geo <- lapply(surveys_id,
+                     georef_coord,
+                     geom = c("lon_mod", "lat_mod"),
+                     crs = "EPSG:4326") 
+```
+
+### Merge administrative divisions with survey
+```{r merge_survey_adm}
+#| label: merge_survey_adm
+
+survey_adm <- purrr::map2(survey_geo, adm_div, terra::intersect) |> 
+  purrr::map(tidyterra::select, c("ID", dplyr::starts_with("AdmDiv"))) |> 
+  # purrr::map(tidyterra::rename, c("adm_div" = "shapeName", "adm_div_id" = "shapeID")) |> 
+  purrr::map(terra::values)
+
+
+hh_adm <- purrr::pmap(list(surveys_id, survey_adm, names(surveys_id)),
+                       merge_with_survey)
+```
+
+### Extract
+```{r extract_pop_density}
+#| label: extract_pop_density
+
+pop_adm <- purrr::map2(pop,
+                       adm_div,
+                       terra::extract,
+                       fun = "sum", 
+                       bind = TRUE,
+                       na.rm = TRUE) |> 
+  purrr::map(\(y) 
+             tidyterra::rename_with(y, 
+                                    ~gsub(".*1km_Aggregated.*", "pop", .x))) |> 
+  purrr::map(\(x) 
+             tidyterra::mutate(x,
+                               area_km = terra::expanse(x, unit = "km"),
+                               pop_density = pop/area_km)) |> 
+  purrr::map(tidyterra::select, c(dplyr::starts_with("AdmDiv"),
+                                  # "shapeName", "shapeID",
+                                  "pop", "area_km", "pop_density")) |> 
+  # purrr::map(tidyterra::rename, c("adm_div" = "shapeName", "adm_div_id" = "shapeID")) |> 
+  purrr::map(terra::values)
+    
+```
+
+```{r extract_night_time}
+#| label: extract_night_time
+
+night_time_adm <- purrr::map2(night_light, adm_div,
+                              terra::extract,
+                              fun = "mean", 
+                              bind = TRUE,
+                              na.rm = TRUE) |> 
+  purrr::map(\(y) tidyterra::rename_with(y, 
+                                         ~gsub("VNL_v21_npp.*", "night_light", .x))) |> 
+  purrr::map(\(x) tidyterra::mutate(x,
+                                    night_light_log = log(1+night_light))) |> 
+  purrr::map(tidyterra::select, c(dplyr::starts_with("AdmDiv"),
+                                  #"shapeName", "shapeID",
+                                  "night_light", "night_light_log")) |> 
+  # purrr::map(tidyterra::rename, c("adm_div" = "shapeName", "adm_div_id" = "shapeID")) |> 
+  purrr::map(terra::values)
+```
+
+### Merge with survey
+```{r merge_with_survey}
+#| label: merge_with_survey
+
+merge_by_common <- function(x, y = NULL) {
+   merge_var <- find_merge_var(x, y)
+    dplyr::full_join(x, y, by = merge_var)
+}
+
+find_merge_var <- function(x, y = NULL) {
+  if (is.null(y) && is.list(x)) {
+    out <- lapply(x, colnames) |>
+      purrr::reduce(intersect)
+    return(out)
+  } else {
+    return( intersect(names(x), names(y)) ) 
+  }
+}
+
+survey_adm_control <- purrr::map2(night_time_adm, pop_adm,
+                                  merge_by_common) |> 
+  purrr::map2(hh_adm, merge_by_common) |> 
+  purrr::map(dplyr::filter, !is.na(hhid))
+```
+
+### Write
+```{r write}
+#| label: write
+
+survey_adm_control |>
+  dplyr::bind_rows() |>
+  dplyr::select(-c(lat_mod, lon_mod)) |>
+  haven::write_dta(path_to_control_adm)
+```
+

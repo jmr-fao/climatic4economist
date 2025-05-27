@@ -1,0 +1,159 @@
+---
+title: "0: Reminder of some R concepts"
+number-sections: false
+---
+
+<br>
+
+## New to R? Read this before the tutorials!
+### How to set up a working directory
+A working directory is the folder where R reads and saves files by default.
+
+```{r wd}
+#| label: wd
+#| eval: false
+# Replace the path below with your own folder path
+setwd("path/to/your/folder")
+# or
+setwd(file.path("path", "to", "your", "folder"))
+
+# Confirm the working directory is set
+getwd()
+```
+
+::: {.callout-note}
+Alternatively you can create an **R Project**
+:::
+
+<br>
+
+### R Project
+An **R Project**  is a simple way to organize your work in RStudio or R.  
+It automatically sets your working directory to the project folder, making your workflow smoother and reproducible.
+
+**R Project** has a particular type of extension `.Rproj`, and usually has this icon: ![](images/project_directory_logo.png){width=0.8in}
+
+1. Step 1 - creates a `.Rproj` file in your project folder
+
+    - In **RStudio**, go to **File > New Project...**  
+    - Choose **New Directory** or **Existing Directory** (if you already have a folder ready)  
+    - Give your project a name and location  
+    - Click **Create Project**  
+
+2. Step 2: Open Your R Project
+
+    - Double-click the `.Rproj` file or open it from RStudio's **Recent Projects**  
+    - The working directory is automatically set to the project folder
+
+::: {.callout-note}
+**R Project** have their own custom options, you can modify them trhought the global option window
+:::
+
+<br>
+
+### The pipe command
+
+The pipe command `|>`. It lets you pass the result of one expression as the first argument to the next, creating a fluid chain of functions.
+
+Instead of nesting functions inside each other, you can pipe the output forward, making the code easier to read.
+
+```{r exm_pipe}
+#| label: exm_pipe
+#| eval: false
+
+4 |> log() |> exp()
+
+exp(log(4))
+```
+
+::: {.callout-note}
+
+* The base R pipe `|>` was introduced in R 4.1.0.
+
+* In some tutorials, you might also see `%>%`, which comes from the `magrittr` or `dplyr` packages. Both do a similar thing, but `|>` is now the official base R version.
+:::
+
+<br>
+
+### The package namespaces
+
+The package namespaces `package_name::function_name()`. As the name suggests, namespaces provide "spaces" for "names". They provide a context for looking up the value of an object associated with a name. When we write `terra::vect()` we are asking R to look for the function `vect()` in the `terra` package.
+
+It's a fairly advanced topic, and by-and-large, not that important! When you first start using namespaces, it'll seem like a lot of work for little gain. However, having a high quality namespace helps encapsulate your package and makes it self-contained. This ensures that other packages won't interfere with your code, that your code won't interfere with other packages, and that your package works regardless of the environment in which it's run.
+
+You can avoid using every time the name space by just loading the necessary packages at the beginning of the code (in the set up section for example). This is the most known and common approach. To do so just add `library(name_of_package)`, for example `library(terra)`. Then we can just call the function without the name space, like this `vect()`.
+
+<br>
+
+### The assign operator
+
+The assign operator `<-`. This is a peculiarity of R and it is used to assign values to variables. However, `<-` is preferred in R scripts because it makes assignments visually distinct from comparisons (`==`) and function arguments (`=`).
+
+Note that the operators `<-` and `=` can be used, almost interchangeably. However, inside function calls, you should use `=` to name arguments, in some situations it creates unintended results.
+
+```{r assign}
+#| label: assign
+#| eval: false
+
+# wrong
+avg <- mean(x, na.rm <- TRUE)
+
+# correct
+avg <- mean(x, na.rm = TRUE)
+```
+
+
+<br>
+
+### Functions
+In Stata, you're used to running do-files or programs to automate tasks. In R, functions play a similar role: they help you organize code and reuse it easily.
+
+A function in R looks like this:
+```{r fn_body}
+#| labek: fn_body
+#| eval: false
+
+my_function <- function(input1, input2) {
+  # Do something with the inputs
+  result <- input1 + input2
+  return(result)
+}
+```
+
+* `my_function` is the function's name.
+
+* `function(input1, input2)` defines what inputs (arguments) it takes.
+
+* Inside `{}`, you write the code that runs when you call the function.
+
+* `return(result)` tells R what the output should be.
+
+You call the function like this:
+```{r fn_out}
+#| label: fn_out
+#| eval: false
+
+my_function(3, 5)
+# Output: 8
+```
+
+Note that you can change the order of the inputs if you properly label them.
+```{r fn_out2}
+#| label: fn_out2
+#| eval: false
+
+my_function(input2 = 5, input1 = 3)
+# Output: 8
+```
+
+Key points for Stata users:
+
+* Functions in R must be assigned to a name using `<-` (the assignment operator).
+
+* You can think of functions a little like Stata's program define, but in R, every function can return a value to be used later.
+
+* You can nest functions inside other functions, making your analysis scripts cleaner and easier to read.
+
+* Evry time you are copying and paste a chuck of code, it is an occasion to write the function.
+<br><br>
+

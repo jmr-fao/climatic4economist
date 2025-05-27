@@ -1,0 +1,158 @@
+---
+title: "Extract Global SPEI data"
+author: "JMR"
+toc-expand: 1
+toc-depth: 2
+format:
+  html:
+    self-contained: true
+    code-tools: true
+    toc-location: right-body
+  docx: 
+    toc-location: body
+editor: source
+editor_options:
+  chunk_output_type: console
+vignette: >
+  %\VignetteIndexEntry{Vignette's Title}
+  %\VignetteEncoding{UTF-8}
+  %\VignetteEngine{quarto::html}
+---
+
+## Intro
+The goal of this tutorial is to guide the user extract Global SPEI data based on the survey locations and merge the data based on the date of interview in the survey.
+
+## Overview of Steps
+In this guide, we will go through the following steps:
+
+1. Load the data
+2. Prepare the survey coordinate
+3. Extract the Global SPEI observations based on the coordinates
+4. Merge the extracted data with the survey based on the date of interview
+5. Save the result
+
+## Is this guide for me?
+
+This guide provides a step-by-step approach to extract raster data based on survey locations. The target audience includes economists who may have experience with statistical software (e.g. STATA) but are less familiar with spatial data processing in R.
+
+The document is not meant to be a course on R or on how the functions work. It is just a practice example on how to extract raster data based on coordinate location. This is done by using specific functions that wrap up as many steps as possible to ensure it is easier for the user to follow.
+
+## What do I need before starting?
+
+The following R packages are necessary: `terra`, `tidyverse`, `haven`, `data.table`. To install the above package you can use `install.packages("name_of_package")`, don't forget the `"`. We also need the  package `climate4economist`, which can be installed only locally.
+
+If you are not familiar with R check the [appendix] for understanding some coding style used in this tutorial.
+
+## Code
+### Set Up
+```{r paths}
+#| label: paths
+
+path_to_spei6 <- file.path("..",
+                           "data", "weather", "Global_SPEI", "spei06.nc")
+path_to_survey <- file.path("..",
+                            "data", "survey", "LSMS_labor_survey",
+                            "labour_forYR_coordinates_new.dta")
+
+path_to_output <- file.path("..",
+    "data", "result", "lbr_srv_global_spei6.dta")
+```
+
+```{r package}
+#| label: package
+
+library(climatic4economist)
+```
+
+### Read
+```{r read_control}
+#| label: read_control
+
+globalSPEI <- terra::rast(path_to_spei6)
+names(globalSPEI) <- terra::time(globalSPEI)
+```
+
+```{r read_survey}
+#| label: read_survey
+
+surveys <- haven::read_dta(path_to_survey) |>
+  dplyr::filter(survey != "Uganda16") |> # 100849
+  dplyr::filter(!is.na(lon_mod) & !is.na(lat_mod)) |>
+  dplyr::select(survey, hhid, id_code, date_interview, lat_mod, lon_mod) |>
+  dplyr::distinct(survey, hhid, .keep_all = TRUE) |>
+  dplyr::group_by(survey) |>
+  dplyr::group_split() |>
+  setNames(c("Ethiopia19", "Malawi17", "Niger14", "Nigeria19", "Tanzania13"))
+```
+
+### Prepare the survey coordinates
+```{r geo_ref}
+#| label: geo_ref
+
+surveys_id <- lapply(surveys,
+                     prepare_coord,
+                     lon_var = lon_mod,
+                     lat_var = lat_mod) 
+
+survey_geo <- lapply(surveys_id,
+                     georef_coord,
+                     geom = c("lon_mod", "lat_mod"),
+                     crs = "EPSG:4326") 
+```
+
+### Crop
+```{r crop}
+#| label: crop
+
+spei_cntry <- sapply(survey_geo,
+                     terra::crop,
+                     x = globalSPEI,
+                     snap = "out",
+                     simplify = FALSE)
+```
+
+
+### Extract
+```{r extract}
+#| label: extract
+
+spei_coord <- spei_cntry |>
+  purrr::map(terra::focal,
+             w = 3, 
+             fun = "mean", 
+             na.policy = "only") |>
+  purrr::map2(survey_geo,
+              extract_by_coord)
+
+```
+
+### Merge with Survey
+```{r merge_with_survey}
+#| label: merge_with_survey
+
+spei6_date <- purrr::pmap(
+    list(spei_coord,
+         list("2009-01-01", "2007-01-01", "2004-01-01", "2009-01-01", "2003-01-01"),
+         list("2019-12-31", "2018-01-01", "2016-01-01", "2019-12-31", "2014-01-01")),
+    select_by_dates)
+
+spei6_survey <- purrr::map2(surveys_id,
+                            spei6_date,
+                            merge_with_survey)
+
+spei6_survey_lag0 <- purrr::map(spei6_survey,
+                                select_by_interview,
+                                interview = date_interview,
+                                interval = "6 months",
+                                wide = TRUE)
+```
+
+### Write
+```{r write}
+#| label: write
+
+spei6_survey_lag0 |>
+  dplyr::bind_rows() |>
+  haven::write_dta(path_to_output)
+
+```

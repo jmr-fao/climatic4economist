@@ -1,0 +1,311 @@
+---
+title: "Climate Indicators"
+author: "JMR"
+format: html
+editor: source
+editor_options:
+  chunk_output_type: console
+---
+
+
+## Introduction
+Create frequentist weather extreme indicators to be used in the microeconomics analysis. The frequentist approach counts the number of weather extreme events that occurred in a reference period. The extreme events are measured based on their rarity of occurrence. This rarity is measured based on the percentiles of the long run weather distribution. In this tutorial we use the 90th, 95th and 99th percentiles as threshold of rarity. The interpretation of these thresholds is the probability of occurrence: above the 90th percentile the probability is 10 percent, above 95th percentile is 5 percent, and above the 99th percentile is 1%.
+
+The weather extreme events are calculated based on the locations of the LSMS survey. We use five surveys from Ethiopia, Malawi, Niger, Nigeria, and Tanzania. 
+
+The reference period to calculate the weather extreme is 12 months before the date of interview of each household.
+
+Given the amount of households is five surveys, the calculation can be challenging from a memory point of view. The approach is to split the five surveys and calculate the weather extreme indicator separately. Moreover, we will reduce the amount of data required by selecting just the observations that are relevant based on the 12 months before the date of interview.
+
+
+## Steps
+
+1. Read the data and georeference the surveys
+2. Crop the global weather data to the survey location
+3. Extract the weather observations based on the survey locations
+4. Transform the weather unit of measure (Kelvin into Celsius and rainfall flux into mm/day)
+5. Calculate the long run percentile of the weather distributions
+6. Find the extreme weather events
+7. Merge the weather extreme events with the survey
+8. Summarize the weather extreme events into indicators based on the date of interview
+9. Write the result
+
+## Code
+### Set Up
+```{r paths}
+#| label: paths
+
+path_to_survey <- file.path("..",
+                            "data", "survey", "LSMS_labor_survey",
+                            "labour_forYR_coordinates_new.dta")
+
+path_to_weather <- file.path("..",
+                             "data", "weather", "WFDE5")
+path_to_pre <- file.path(path_to_weather, "pre")
+path_to_tmp <- file.path(path_to_weather, "tmax")
+
+
+path_to_extreme  <- file.path("..",
+                              "data", "result")
+
+path_to_tmp_extreme <- file.path(path_to_extreme, "lbr_srv_tmp_extr.dta")
+path_to_pre_extreme <- file.path(path_to_extreme, "lbr_srv_pre_extr.dta")
+
+```
+
+```{r package}
+#| label: package
+
+library(climatic4economist)
+```
+
+### Read
+```{r read_weather}
+#| label: read_weather
+
+pre <- list.files(path_to_pre, full.names = TRUE) |>
+    terra::rast()
+names(pre) <- terra::time(pre)
+
+tmp <- list.files(path_to_tmp, full.names = TRUE) |>
+    terra::rast()
+names(tmp) <- terra::time(tmp)
+```
+
+```{r read_survey}
+#| label: read_survey
+
+surveys <- haven::read_dta(path_to_survey) |>
+  dplyr::filter(survey != "Uganda16") |> # 100849
+  dplyr::filter(!is.na(lon_mod) & !is.na(lat_mod)) |>
+  dplyr::select(-dplyr::starts_with("UGA"),
+                -dplyr::starts_with("AdmDiv"),
+                -year) |>
+  dplyr::distinct(survey, hhid, .keep_all = TRUE) |>
+  dplyr::group_by(survey) |>
+  dplyr::group_split() |>
+  lapply(prepare_coord, 
+         lon_var = lon_mod,
+         lat_var = lat_mod) |>
+  setNames(c("Ethiopia19", "Malawi17", "Niger14", "Nigeria19", "Tanzania13"))
+
+survey_geo <- lapply(surveys, 
+                     georef_coord,
+                     geom = c("lon_mod", "lat_mod"),
+                     crs = "EPSG:4326") 
+```
+
+### Crop
+```{r crop}
+#| label: crop
+
+pre_cntry <- sapply(survey_geo,
+                    terra::crop,
+                    x = pre,
+                    snap = "out",
+                    simplify = FALSE)
+
+tmp_cntry <- sapply(survey_geo,
+                    terra::crop,
+                    x = tmp,
+                    snap = "out",
+                    simplify = FALSE)
+```
+
+
+### Transformation
+```{r transformation}
+#| label: transformation
+
+# From flux rate to millimeters per day
+pre_cntry_mm <- purrr::map(pre_cntry, ~ .x*86400)
+
+# From Kelvin to Celsius
+tmp_cntry_c <- purrr::map(tmp_cntry, ~ .x - 273.15)
+```
+
+
+### Extract
+```{r extract}
+#| label: extract
+
+pre_coord <- pre_cntry_mm |>
+    purrr::map(terra::focal,
+             w = 3, 
+             fun = "mean", 
+             na.policy = "only") |>
+  purrr::map2(survey_geo,
+              extract_by_coord)
+
+tmp_coord <- tmp_cntry_c |>
+  purrr::map(terra::focal,
+             w = 3, 
+             fun = "mean", 
+             na.policy = "only") |>
+  purrr::map2(survey_geo,
+              extract_by_coord)
+```
+
+
+### Percentiles
+```{r percentiles}
+#| label: percentiles
+
+pre_perc <- purrr::map2(pre_coord,
+                        names(pre_coord),
+                        calc_pct_day,
+                        p = c(0.90, 0.95, 0.99),
+                        l_thresh = 0.1,
+                        yearly = TRUE)
+
+tmp_perc <- purrr::map2(tmp_coord,
+                        names(tmp_coord),
+                        calc_pct_day,
+                        p = c(0.90, 0.95, 0.99),
+                        yearly = TRUE)
+```
+
+
+### Find extreme days
+```{r find_rel_extr_day}
+#| label: find_rel_extr_day
+
+pre_coord_mm_10yrs <- purrr::pmap(
+  list(pre_coord,
+       list("2009-01-01", "2007-01-01", "2004-01-01", "2009-01-01", "2003-01-01"),
+       list("2019-12-31", "2018-01-01", "2016-01-01", "2019-12-31", "2014-01-01")),
+  select_by_dates)
+tmp_coord_c_10yrs <- purrr::pmap(
+  list(tmp_coord,
+       list("2009-01-01", "2007-01-01", "2004-01-01", "2009-01-01", "2003-01-01"),
+       list("2019-12-31", "2018-01-01", "2016-01-01", "2019-12-31", "2014-01-01")),
+  select_by_dates)
+
+pre_extr <- purrr::pmap(list(pre_coord_mm_10yrs,
+                             iteracation = names(pre_coord_mm_10yrs),
+                             u_thresh = pre_perc),
+                        find_extr_rel_day,
+                        unit = "mm") |>
+  purrr::map(\(x) dplyr::select(x, -dplyr::starts_with("mm")))
+
+tmp_extr <- purrr::pmap(list(tmp_coord_c_10yrs, 
+                             u_thresh = tmp_perc,
+                             iteracation = names(tmp_coord_c_10yrs) 
+                             ),
+                        find_extr_rel_day,
+                        unit = "c") |>
+  purrr::map(\(x) dplyr::select(x, -dplyr::starts_with("c")))
+```
+
+### Merge with Survey
+```{r merge_with_survey}
+#| label: merge_with_survey
+
+pre_extr_survey <- purrr::pmap(list(surveys,
+                                    iteracation = names(surveys),
+                                    pre_extr),
+                               merge_with_survey)
+
+pre_extr_survey <- purrr::map(pre_extr_survey,
+                              filter_by_interview,
+                              interview = date_interview,
+                              interval = "1 year")
+
+tmp_extr_survey <- purrr::pmap(list(surveys,
+                                    iteracation = names(surveys),
+                                    tmp_extr),
+                               merge_with_survey)
+
+tmp_extr_survey <- purrr::map(tmp_extr_survey, 
+                              filter_by_interview,
+                              interview = date_interview,
+                              interval = "1 year")
+```
+
+
+### Calculate climate indicators
+```{r weather_extreme_ind}
+#| label: weather_extreme_ind
+
+pre_ind <- purrr::map2(pre_extr_survey,
+                       names(pre_extr_survey),
+                       extr_day_index,
+                       id = hhid,
+                       interview = date_interview,
+                       interval = "1 year",
+                       n_lags = 0)
+
+tmp_ind <- purrr::map2(tmp_extr_survey,
+                       names(tmp_extr_survey),
+                       extr_day_index,
+                       id = hhid,
+                       interview = date_interview,
+                       interval = "1 year",
+                       n_lags = 0)
+
+
+```
+
+
+### Write
+```{r write}
+#| label: write
+
+pre_ind |>
+  dplyr::bind_rows(.id = "survey") |>
+  haven::write_dta(path_to_pre_extreme)
+
+tmp_ind |>
+  dplyr::bind_rows(.id = "survey") |>
+  haven::write_dta(path_to_tmp_extreme)
+```
+
+
+## Appendix
+### Data
+#### Weather
+W5E5 dataset was compiled to support the bias adjustment of climate  input data for the impact assessments carried out in phase 3b of the Inter-Sectoral Impact Model Intercomparison Project (ISIMIP3b)  The WFDE5 dataset has been generated using the WATCH Forcing Data (WFD) methodology applied to surface meteorological variables from the ERA5  reanalysis.
+
+It is possible to find additional information [here](https://data.isimip.org/10.48364/ISIMIP.342217) and the related article [here](https://essd.copernicus.org/articles/12/2097/2020/). 
+The data can be freely download from [here](https://data.isimip.org/search/page/2/climate_forcing/w5e5v2.0/simulation_round/ISIMIP3a/product/SecondaryInputData/).
+
+Daily Maximum Near Surface Air Temperature
+1
+To convert Kelvin degree in to Celsius degree use use this relation: 1C° = 1K° - 273.15
+
+
+| Parameter           | Value               |
+|:--------------------|:-------------------:|
+| spatial resolution  | 0.5° x 0.5° lon lat |
+| temporal resolution | daily               |
+| time frame          | Jan 1979 - Dec 2019 |
+| unit of measure     | Kelvin              |
+
+Daily Rainfall flux from The W5E5
+
+Rainfall flux is the rate of rain that falls to the Earth's surface. Values are derived from ERA5 total precipitation and snowfall and are  bias corrected primarily using precipitation data from CRU and GPCC.
+
+To convert rainfall flux into mm/day use use this relation: 1 kg/m2/s = 86400 mm/day.
+
+| Parameter           | Value               |
+|:--------------------|:-------------------:|
+| spatial resolution  | 0.5° x 0.5° lon lat |
+| temporal resolution | daily               |
+| time frame          | Jan 1979 - Dec 2019 |
+| unit of measure     | kg/m2/s             |
+
+#### Survey
+The Living Standards Measurement Study - Integrated Surveys on Agriculture (LSMS-ISA) is a unique system of longitudinal surveys designed to improve the understanding of household and individual welfare, livelihoods and smallholder agriculture in Africa. The LSMS team works with national statistics offices to design and implement household surveys with a strong focus on agriculture.
+
+Additional information can be find [here](https://www.worldbank.org/en/programs/lsms). The data can be download from [here](https://microdata.worldbank.org/index.php/home).
+
+The following survey are used in this tutorial.
+
+| Survey    | Year |
+|:----------|-----:|
+| Ethiopia  | 2019 |
+| Malawi    | 2017 |
+| Niger     | 2014 |
+| Nigeria   | 2019 |
+| Tanzania  | 2013 |
+

@@ -1,0 +1,240 @@
+---
+title: "Compute SPEI"
+author: "JMR"
+format: html
+editor: source
+editor_options:
+  chunk_output_type: console
+---
+
+
+
+## Introduction
+What is SPEI? 
+How does SPEI work?
+How to interpret SPEI?
+
+## Steps
+
+1. Read the data and georeference the surveys
+2. Crop the global weather data to the survey location
+3. Extract the weather observations based on the survey locations
+4. Create the water balance (precipitation minus potential evapotranspiration) time series for each location
+5. Calculate the SPEI
+6. Merge with survey
+7. Summarize the weather extreme events into indicators based on the date of interview
+8. Write the result
+
+## Code
+### Set Up
+```{r paths}
+#| label: paths
+
+path_to_survey <- file.path(#"..",
+                            "data", "survey", "LSMS_labor_survey",
+                            "labour_forYR_coordinates_new.dta")
+
+path_to_weather <- file.path(#"..",
+                             "data", "weather", "ERA5_Land")
+path_to_pre <- file.path(path_to_weather, "monthly_pre",
+                         "era5_monthly_means_50_21_pre.nc")
+path_to_pet <- file.path(path_to_weather, "monthly_pet",
+                         "era5_monthly_means_50_21_pet.nc")
+
+path_to_spei6  <- file.path(#"..",
+                           "data", "result", "lbr_srv_spei6.dta")
+```
+
+
+```{r package}
+#| label: package
+
+library(climatic4economist)
+```
+
+### Read
+```{r read_weather}
+#| label: read_weather
+
+pre <- terra::rast(path_to_pre)
+names(pre) <- terra::time(pre)
+
+pet <- terra::rast(path_to_pet)
+names(pet) <- terra::time(pet)
+```
+
+```{r read_survey}
+#| label: read_survey
+
+surveys <- haven::read_dta(path_to_survey) |>
+  dplyr::filter(survey != "Uganda16") |> # 100849
+  dplyr::filter(!is.na(lon_mod) & !is.na(lat_mod)) |>
+  dplyr::select(-dplyr::starts_with("UGA"),
+                -dplyr::starts_with("AdmDiv"),
+                -year) |>
+  dplyr::distinct(survey, hhid, .keep_all = TRUE) |>
+  dplyr::group_by(survey) |>
+  dplyr::group_split() |>
+  lapply(prepare_coord, 
+         lon_var = lon_mod,
+         lat_var = lat_mod) |>
+  setNames(c("Ethiopia19", "Malawi17", "Niger14", "Nigeria19", "Tanzania13"))
+
+survey_geo <- lapply(surveys,
+                     georef_coord,
+                     geom = c("lon_mod", "lat_mod"),
+                     crs = "EPSG:4326") 
+```
+
+### Crop
+```{r crop}
+#| label: crop
+
+pre_cntry <- sapply(survey_geo,
+                    terra::crop,
+                    x = pre,
+                    snap = "out",
+                    simplify = FALSE)
+
+pet_cntry <- sapply(survey_geo,
+                    terra::crop,
+                    x = pet,
+                    snap = "out",
+                    simplify = FALSE)
+```
+
+### Extract
+```{r extract}
+#| label: extract
+
+pre_coord <- pre_cntry |>
+    purrr::map(terra::focal,
+             w = 3, 
+             fun = "mean", 
+             na.policy = "only") |>
+  purrr::map2(survey_geo,
+              extract_by_coord)
+
+
+pet_coord <- pet_cntry |>
+  purrr::map(terra::focal,
+             w = 3, 
+             fun = "mean", 
+             na.policy = "only") |>
+  purrr::map2(survey_geo,
+              extract_by_coord)
+
+```
+
+### Water Balance
+```{r water_balance}
+#| label: water_balance
+
+wb_coord <- purrr::map2(pre_coord, pet_coord, compute_water_balance)
+
+```
+
+### Compute SPEI
+We now compute the SPEI with the function `compute_spei()`. This function requires the precipitation time series for each location and the time scale at which the SPEI is computed.
+
+To compute the SPEI, it is recommended to use at least 30 years of observation to ensure a good estimation of the parameters. More years can strength the estimation but the results can be affected by climate change: if there have been a change in the climate parameters, old observations might be not indicative of the current situation affecting the estimation. There are no clear rule on this, so we leave add the possibility to select the time range of observation with the function `select_by_dates()`. The function requires both or just one between the starting date, `from`, and the end date `to`. If both are provide the the function select between the two dates, if only `from` is provided the function selects all date after, and if only `to` is provided the function selects all date before.
+
+Looking at the result, we see first is the `ID` column, that we will use to merge back with the survey. The other columns contain the SPEI observations over time specific to each coordinate.
+
+```{r compute_spei}
+#| label: compute_spei
+
+spei6 <- purrr::map(wb_coord,
+                    compute_spei,
+                    time_scale = 6)
+
+spei6_date <- purrr::pmap(
+    list(spei6,
+         list("2009-01-01", "2007-01-01", "2004-01-01", "2009-01-01", "2003-01-01"),
+         list("2019-12-31", "2018-01-01", "2016-01-01", "2019-12-31", "2014-01-01")),
+    select_by_dates)
+
+```
+
+### Merge with survey
+Now, we combine the extracted weather data with the survey data using `ID` as the key matching variable.
+
+```{r merge_survey}
+#| label: merge_survey
+
+spei6_survey <- purrr::map2(surveys, spei6_date, merge_with_survey)
+
+```
+
+### Summarize
+If we want to select just a subsets of observations we can use the `select_by_dates()` function. If we want to select based on the date of interview of the survey, we can use `select_by_interview()`. This last function requires the variable that contains the dates of interview and the interval to select based on the dates. The interval must be express in number of months or in number years. The `wide` argument specifies how the output should be reported, in wide with each time observation as separate columns, or long, with all observation in one column.
+
+```{r summarize_spei}
+#| label: summarize_spei
+
+spei6_survey_lag0 <- purrr::map(spei6_survey,
+                                select_by_interview,
+                                interview = date_interview,
+                                interval = "1 month",
+                                wide = FALSE)
+
+
+l_thrshld <- c(-1, -1.5, -2)
+std_index6_survy <- purrr::map(spei6_survey_lag0,
+                               extr_std_index,
+                               l_thrshld = l_thrshld)
+std_index6_survy
+```
+
+### Write
+```{r write}
+#| label: write
+
+std_index6_survy |>
+  dplyr::bind_rows() |>
+  dplyr::rename_with(.fn = ~ gsub("\\.|_ind", "", .x)) |>
+  dplyr::rename_with(.fn = ~ gsub("std", "spei", .x)) |>
+  haven::write_dta(path_to_spei6)
+
+```
+
+
+## Appendix
+### Data
+#### Weather
+Weather observation are obtained from ERA5-Land reanalysis dataset. H-TESSEL is the land surface model that is the basis of ERA5-Land. The data is a post-processed monthly-mean average of the original ERA5-Land dataset.
+
+It is possible to find additional information [here](https://cds.climate.copernicus.eu/cdsapp#!/dataset/reanalysis-era5-land-monthly-means?tab=overview) and the related manual [here](https://confluence.ecmwf.int/display/CKB/ERA5-Land). 
+The data can be freely download from [here](https://cds.climate.copernicus.eu/cdsapp#!/dataset/reanalysis-era5-land-monthly-means?tab=overview).
+
+
+| Parameter           | Value                   |
+|:--------------------|:-----------------------:|
+| spatial resolution  | 0.1° x 0.1° lon lat     |
+| temporal resolution | month                   |
+| time frame          | Jan. 1950 - Dec. 2022   |
+| unit of measure     | m                       |
+
+
+##### Total precipitation
+Accumulated liquid and frozen water, including rain and snow, that falls to the Earth's surface. It is the sum of large-scale precipitation and convective precipitation. Precipitation variables do not include fog, dew or the precipitation that evaporates in the atmosphere before it lands at the surface of the Earth.
+
+##### Total evaporation
+Accumulated amount of water that has evaporated from the Earth's surface, including a simplified representation of transpiration (from vegetation), into vapour in the air above. This variable is accumulated from the beginning of the forecast to the end of the forecast step. The ECMWF Integrated Forecasting System convention is that downward fluxes are positive. Therefore, negative values indicate evaporation and positive values indicate condensation.
+
+#### Survey
+The Living Standards Measurement Study - Integrated Surveys on Agriculture (LSMS-ISA) is a unique system of longitudinal surveys designed to improve the understanding of household and individual welfare, livelihoods and smallholder agriculture in Africa. The LSMS team works with national statistics offices to design and implement household surveys with a strong focus on agriculture.
+
+Additional information can be find [here](https://www.worldbank.org/en/programs/lsms). The data can be download from [here](https://microdata.worldbank.org/index.php/home).
+
+The following survey are used in this tutorial.
+
+| Survey    | Year |
+|:----------|-----:|
+| Ethiopia  | 2019 |
+| Malawi    | 2017 |
+| Niger     | 2014 |
+| Nigeria   | 2019 |
+| Tanzania  | 2013 |
+
+

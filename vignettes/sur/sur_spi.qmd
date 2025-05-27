@@ -1,0 +1,197 @@
+---
+title: "Compute SPI"
+author: "JMR"
+format:
+  html:
+    self-contained: true
+    code-tools: true
+    toc: true
+    toc-expand: 1
+    toc-depth: 2
+    toc-location: right-body
+editor: source
+editor_options:
+  chunk_output_type: console
+vignette: >
+  %\VignetteIndexEntry{Vignette's Title}
+  %\VignetteEncoding{UTF-8}
+  %\VignetteEngine{quarto::html}
+---
+
+## Is this guide for me?
+
+This guide provides a step-by-step approach to compute the Standardized Precipitation Index (SPI) based on survey locations. The target audience includes economists who may have experience with statistical software (e.g. STATA) but are less familiar with R.
+
+## Overview of Steps
+
+In this guide, we will go through the following steps:
+
+1.  Load the data
+2.  Prepare the data
+4.  Compute the SPI
+5.  Merge the SPI values with the survey
+6.  Save the results.
+
+## What do I need before starting?
+
+The following R packages are necessary: `tidyverse`, `haven`, `SPEI`, `furrr`, `clock` and script `functions.R`, which contain the wrapped specific functions. To install the above package you can use `install.packages("name_of_package")`, don't forget the `"`.
+
+If you are not familiar with R check the [appendix] for understanding some coding style used in this tutorial.
+
+# Code
+## Set Up
+
+In the setup, we create the paths to the various data sources and load the necessary functions for extraction.
+
+```{r set_up}
+#| label: set_up
+
+# paths
+path_to_pre_survey <- file.path(#"..",
+                                "data_processed", "pre_month_survey.dta")
+
+# load wrapper functions
+source(file.path("script_qmd",
+                 "functions.R"))
+
+```
+
+## Load the data
+
+We expect to already have the precipitation time series associated with the household of the survey. This data is stored as `dta` files, so we use the `haven::read_dta()` function to read it.
+
+```{r read_surveys}
+#| label: read_surveys
+
+survey <- haven::read_dta(path_to_pre_survey)
+
+survey
+```
+
+## Prepare the data
+```{r unique_values}
+n_hh <- nrow(survey)
+n_hh
+
+n_locations <- unique(survey$ID) |> 
+  length()
+n_locations
+
+n_cells <- survey |>
+    dplyr::distinct(x_cell, y_cell) |>
+    nrow()
+n_cells
+```
+
+In the survey there are `r n_hh` household, but some of them share the same location. Indeed the number of unique location is `r n_locations`. Further, some of these location have the same weather observations. The actual unique weather observations is `r n_cells`.
+
+Computing the SPI can be computationally intensive, especially if we need to do it for each households. However, we now that there actually only `r n_cells` distinct weather time series, so we compute the SPI only for these ones. We prepare the data with the `prepare_coord()` function.
+
+```{r prep_coord}
+#| label: prep_coord
+
+coord <- prepare_coord(survey,
+                       lat_var = y_cell, 
+                       lon_var = x_cell)
+```
+
+## Compute the SPI
+We now compute the SPI with the function `compute_spi()`. This function requires the precipitation time series for each location and the time scale at which the SPI is computed.
+
+To compute the SPI, it is recommended to use at least 30 years of observation to ensure a good estimation of the parameters. More years can strength the estimation but the results can be affected by climate change: if there have been a change in the climate parameters, old observations might be not indicative of the current situation affecting the estimation. There are no clear rule on this, so we leave add the possibility to select the time range of observation with the function `select_by_dates()`. The function requires both or just one between the starting date, `from`, and the end date `to`. If both are provide the the function select between the two dates, if only `from` is provided the function selects all date after, and if only `to` is provided the function selects all date before.
+
+Looking at the result, we see first is the `ID` column, that we will use to merge back with the survey. The other columns contain the SPI observations over time specific to each coordinate.
+
+```{r compute_spi}
+#| label: compute_spi
+#| warning: false
+
+# coord  <- select_by_dates(coord, from = "1991-01-01", to = "2023-01-01") 
+
+spi3 <- compute_spi(coord, time_scale = 3)
+spi3
+```
+
+## Merge with survey
+
+Now, we combine the extracted weather data with the survey data using `ID` as the key matching variable.
+
+If we want to select just a subsets of observations we can use the `select_by_dates()` function. If we want to select based on the date of interview of the survey, we can use `select_by_interview()`. This last function requires the variable that contains the dates of interview and the interval to select based on the dates. The interval must be express in number of months or in number years. The `wide` argument specifies how the output should be reported, in wide with each time observation as separate columns, or long, with all observation in one column.
+
+>Note that current version of the `select_by_interview()` functions drops the observations with missing date of interview.
+
+```{r merge_spi}
+#| label: merge_spi
+spi3_survey <- merge_with_survey(coord, spi3)
+
+# select_by_interview(spi3_survey,
+#                     interview = end_date_n,
+#                     interval = "1 year",
+#                     wide = TRUE)
+
+spi3_survey
+```
+
+We are back at `r nrow(spi3_survey)`, which matches the original survey.
+
+## Save
+
+The final step of the code is to save the result. In this case, we save it as a `dta` file using the `haven::write_dta()` function.
+
+```{r write_data}
+#| label: write_data
+
+haven::write_dta(spi3_survey,
+                 file.path("..", "data_processed", "spi3_survey.dta"))
+```
+
+# Take home messages
+
+1.  Load! `haven::read_dta()` for the dta files,
+
+2.  Prepare the data! Use the wrapper functions `prepare_coord()`.
+
+3.  Compute! Use the wrapper function `compute_spi()`.
+
+4.  Merge! Use the wrapper function `merge_with_survey()`.
+
+5.  Save! If in a dta file use `haven::write_dta()`.
+
+# Appendix
+## New to R? Read this first!
+### The pipe command
+
+The pipe command `|>`. It lets you pass the result of one expression as the first argument to the next, creating a fluid chain of functions.
+
+### The package namespaces
+
+The package namespaces `package_name::function_name()`. As the name suggests, namespaces provide "spaces" for "names". They provide a context for looking up the value of an object associated with a name. When we write `terra::vect()` we are asking R to look for the function `vect()` in the `terra` package.
+
+It's a fairly advanced topic, and by-and-large, not that important! When you first start using namespaces, it'll seem like a lot of work for little gain. However, having a high quality namespace helps encapsulate your package and makes it self-contained. This ensures that other packages won't interfere with your code, that your code won't interfere with other packages, and that your package works regardless of the environment in which it's run.
+
+You can avoid using every time the name space by just loading the necessary packages at the beginning of the code (in the set up section for example). This is the most known and common approach. To do so just add `library(name_of_package)`, for example `library(terra)`. Then we can just call the function without the name space, like this `vect()`.
+
+### The assign operator
+
+The assign operator `<-`. This is a peculiarity of R and it is used to assign values to variables. Note that the operators `<-` and `=` can be used, almost interchangeably.
+
+## Want to know about the data?
+### Precipitation
+Monthly precipitation from Climate Hazards Group InfraRed Precipitation with Station data (CHIRPS)[^1] is a 35+ year quasi-global rainfall data set. Spanning 50°S-50°N (and all longitudes) and ranging from 1981 to near-present, CHIRPS incorporates in-house climatology, CHPclim, 0.05° resolution satellite imagery, and in-situ station data to create gridded rainfall time series for trend analysis and seasonal drought monitoring.
+
+Data can be downloaded from [here](https://data.chc.ucsb.edu/products/CHIRPS-2.0/global_monthly/netcdf/) while extra information are available [here](https://www.chc.ucsb.edu/).
+
+[^1]: Funk, C.C., Peterson, P.J., Landsfeld, M.F., Pedreros, D.H., Verdin, J.P., Rowland, J.D., Romero, B.E., Husak, G.J., Michaelsen, J.C., and Verdin, A.P., 2014, A quasi-global precipitation time series for drought monitoring: U.S. Geological Survey Data Series 832, 4 p. http://pubs.usgs.gov/ds/832/
+
+| feature             | value                 |
+|:--------------------|:----------------------|
+| spatial resolution  | 0.05 x 0.05 (\~ 5 km) |
+| temporal resolution | monthly               |
+| temporal frame      | 1981 - near present   |
+| unit of measure     | mm/month              |
+
+### Survey
+Suriname Survey of Living Conditions. The 2022 Suriname Survey of Living Conditions is a joint survey made by The Inter-American Development Bank (IDB) and the World Bank. The 2022 Suriname Survey of Living Conditions - administered to a nationally representative sample, which included 7,713 individuals from 2,540 households - was developed to support poverty analysis as well as policy planning and is a helpful tool for policy makers to facilitate fact-based decision making. The survey’s design and execution were financed by the IDB, while the World Bank and IDB are joining forces to analyze data and produce initial findings. The Suriname Survey of Living Conditions (SSLC) 2016/17 is an effort of the Inter-American Development Bank (IDB) with the support of the EnergieBedrijvan Suriname’s (state-owned electrical company of Suriname) and the Central Bank of Suriname. It visited about 2,000 households from October 2016 through September 2017 and collected data on the most important dimensions of welfare, which will support evidence-based policy making in areas such as education, health, housing, employment and poverty alleviation. The survey also gathered information on the consumption patterns, income and expenditures of the Surinamese households, intended to update the Consumption Price Index basket and inform the System of National Accounts.
+
+For extra info look [here](https://openknowledge.worldbank.org/entities/publication/2d0e6975-2f85-4d12-83fa-4f75c617cf89) and [here](https://webapps.ilo.org/surveyLib/index.php/catalog/7499).
+

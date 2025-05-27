@@ -1,0 +1,76 @@
+---
+title: "Aggregate Hourly to daily frequency"
+author: "JMR"
+toc: true
+toc-expand: 1
+toc-depth: 2
+format:
+  html:
+    self-contained: true
+    code-tools: true
+    toc-location: right-body
+  docx: 
+    toc-location: body
+editor: source
+editor_options:
+  chunk_output_type: console
+vignette: >
+  %\VignetteIndexEntry{Vignette's Title}
+  %\VignetteEncoding{UTF-8}
+  %\Vigne
+---
+
+
+
+
+```{r paths}
+#| label: paths
+
+path_to_data_hr <- file.path("..",
+                             "data", "weather", "ERA5_Land", "AFG", 
+                             "hourly", "2m_temperature")
+path_to_data_dy <- file.path("..",
+                             "data", "weather", "ERA5_Land", "AFG", 
+                             "daily", "2m_temperature")
+```
+
+
+```{r}
+library(climatic4economist)
+```
+
+
+```{r read}
+#| label: read
+
+
+file_date <- list.files(path_to_data_hr) |>
+  gsub("hour_(.*)_2m_temperature_.nc", "\\1", x = _)
+
+tmp_hr <- list.files(path_to_data_hr, full.names = TRUE) |>
+  sapply(terra::rast, simplify = FALSE) |>
+  setNames(file_date)
+
+tmp_hr$`2020_03`
+aggregate_frequency(tmp_hr$`2020_03`,
+                    target_freq = "%Y-%m-%d",
+                    agg_fn = "min" )
+```
+
+```{r aggregate}
+#| label: aggregate
+tmp_dy <- purrr::map2(tmp_hr,
+                      names(tmp_hr),
+                      aggregate_frequency, 
+                      target_freq = "%Y-%m-%d",
+                      agg_fn = "min")
+```
+
+```{r write}
+#| label: write 
+tmp_dy |>
+  terra::rast() |>
+  terra::writeCDF(file.path(path_to_data_dy, "day_50_25_2m_tmp_min.nc"))
+```
+
+

@@ -1,0 +1,260 @@
+---
+title: "Cold percentiles in the Villages of Afghanistan"
+author: "JMR"
+toc: true
+toc-expand: 1
+toc-depth: 2
+format:
+  html:
+    self-contained: true
+    code-tools: true
+    toc-location: right-body
+  docx: 
+    toc-location: body
+editor: source
+editor_options:
+  chunk_output_type: console
+vignette: >
+  %\VignetteIndexEntry{Vignette's Title}
+  %\VignetteEncoding{UTF-8}
+  %\VignetteEngine{quarto::html}
+---
+
+
+## Code
+### Set Up
+
+In the setup, we create the paths to the various data sources and load the necessary functions for extraction. Note `..` means one step back to the folder directory, i.e. one folder back.
+
+```{r set_up}
+#| label: set_up
+
+path_to_data <- file.path("..",
+                          "..", "data")
+
+path_to_tmp_min <- file.path(path_to_data, "weather", "ERA5_Land", "AFG", "daily", 
+                             "2m_temperature")
+
+path_to_village <- file.path(path_to_data, "survey", "AFG",
+                             "Village coordinates_CoF(Village level coordinates).csv")
+
+path_to_adm_div <- file.path(path_to_data, "adm_div", "UN_borders", "UN-AFG-ADM2.gpkg")
+```
+
+
+```{r package}
+#| label: package
+
+library(climatic4economist)
+```
+
+### Load the data
+Let's start by loading the data into R. We load the weather observation with the function `terra::rast()`. As the raw data is made of two different files, we first load each one with the `lapply()` function and than we aggregate them with the `terra::rast()` function. Note that we changed the order of the list item to have them ordered by date. This has no computational implication for this tutorial but it is nicer. 
+
+>We set the names of the layer as the date of observation. This is very important for later.
+
+```{r read_weather}
+#| label: read_weather
+
+tmp_min_k <- list.files(path_to_tmp_min, full.names = TRUE) |>
+  lapply(terra::rast)
+tmp_min_k
+
+tmp_min_k <- terra::rast(list(tmp_min_k[[2]], tmp_min_k[[1]]))
+
+names(tmp_min_k) <- terra::time(tmp_min_k)
+tmp_min_k
+```
+
+Now we load the villages. We rename the variable for easier use.
+
+>It is very important to check if the village and the raster data share the same coordinate reference system!
+
+Usually, the WGS 84 CRS is the default coordinate references system for coordinates. In this case it  matches the weather coordinate references system.
+
+```{r read_villages}
+#| label: read_villages
+
+village <- data.table::fread(path_to_village) |> 
+    dplyr::rename(lon = "Longitude (X)",
+                  lat = "Latitude (Y)")
+village
+```
+
+We load the administrative divisions to check where the villages are.
+
+```{r read_adm_div}
+#| label: read_ad_div
+
+adm_div <- terra::vect(path_to_adm_div)
+adm_div
+```
+
+### Georeference the survey
+
+As we've mentioned, the weather data is georeferenced, so we need to ensure the same for the survey data. 
+
+we must ensure that we can later associate the correct weather data with the right household, we do this by creating an merging variable called `ID`.
+
+This is handled by the `prepare_coord()` function, which requires the coordinates' variable names as input.
+
+Once we have the unique coordinates, we are ready to transform them into spatial points using the `georef_coord()` function. When performing this transformation, it's crucial to set the correct CRS, which must match that of the weather data. The CRS is provided as an argument of the function, using the previously saved CRS from the weather data. Also the `georef_coord()` function requires the coordinates' variable names as input.
+
+
+```{r georef_coord}
+#| label: georef_coord
+
+village_coord <- prepare_coord(village,
+                               lon_var = lon,
+                               lat_var = lat)
+
+village_geo <- georef_coord(village_coord,
+                            geom = c("lon", "lat"),
+                            crs = "EPSG:4326")
+village_geo
+```
+
+### Plot
+
+A good practice when working with spatial data is to plot it. This is the best way to verify that everything is working as expected.
+
+First, we plot the administrative division and the villages to ensure they are correctly located and we examine their spatial distribution. 
+
+```{r plot_survey_geo}
+#| label: plot_survey_geo
+
+terra::plot(adm_div, 
+            col = "grey80",
+            border="grey60",
+            lwd = 0.1,
+            main = "Afganistan's District and Programme Villages")
+terra::points(village_geo, col = "blue", cex = 1)
+
+village_geo |> 
+    tidyterra::filter(ID == 47) |> 
+    terra::text("ID", col = "red")
+```
+
+We can see that the village `ID == 47` is isolated fro the other villages, which tend to cluster in two distinct areas. I would suggest to double check the accuracy of this village.
+
+```{r oulier}
+#| label: oulier
+
+village_coord |> 
+    dplyr::filter(ID == 47) |> 
+    knitr::kable()
+```
+
+
+Next, we plot a layer of the minimum temperature data to see how it overlaps with the spatial coordinates.
+
+```{r plot_precipitation}
+#| label: plot_precipitation
+
+terra::plot(tmp_min_k, "2022-12-31", col = terra::map.pal("water"),
+            main = "Daily minimum temperature on 2022-12-31 and village locations")
+terra::points(village_geo, col = "gold", cex = 0.8)
+```
+
+Once again, the villages coordinates align with the temperature data, which is great!
+
+
+### Extract
+
+Next, we extract the weather data based on the village coordinates using the `extract_by_coord()` function. This function requires the raster with the weather data and the georeferenced coordinates as inputs.
+
+Looking at the result, we see first the `ID` column, that identifies the village coordinates. The second and third column are the coordinates of the cells. The other columns contain the weather observations over time specific to each coordinate.
+
+```{r extract_tmin}
+#| label: extract_tmin
+
+tmin_village_k <- extract_by_coord(raster = tmp_min_k, 
+                                   coord = village_geo)
+tmin_village_k
+
+```
+
+Again we have a row for each unique village. However, if we want to know how many different cells there are we can look unique cell coordinates.
+
+```{r cell_coordinate}
+#| label: cell_coordinate
+
+unique_cell <- tmin_village_k |>
+  dplyr::distinct(x_cell, y_cell)
+nrow(unique_cell)
+```
+
+We see that now the number of rows is `r nrow(unique_cell)`, this is the actual different weather observation that we can merge with the villages. In other words, many villages share the same weather observation as they fall within the same pixel.
+
+
+### Prepare data
+The original unit of measure of the temperature in Kelvin, we change it into Celsius.
+
+```{r transformation}
+#| label: transformation
+
+tmin_village_c <- tmin_village_k |>
+  dplyr::mutate(dplyr::across(.cols = dplyr::matches("[0-9]{4}"),
+                              .fns = ~ .x - 273.15))
+```
+
+Before calculating the percentile we select just the observations after 1980 with the function `select_by_dates()`. Indeed, 30 years is usually considered enough observation to evaluate climatic parameters, and weather observation before 1980 are considered less reliable.
+
+```{r prepare_coord}
+#| label: prepare_coord
+
+tmin_village_c_80 <- select_by_dates(tmin_village_c, from = "1980-01-01")
+```
+
+### Calculate percentiles
+>If we believe the thresholds shouldn't be the same across all the location but instead be adaptive to the local long run climatic condition we should use the relative thresholds. In this case the thresholds varies for each location, adapting to the local climatic features and making the spatial comparison among heterogeneous places more meaningful. The relative approach measures the extreme weather events in term of their rarity, which is measured by the percentile of their local and seasonal distribution.
+
+We now calculate the percentiles with the function `calc_pct_day()`. The functions requires the weather observations with the additional variable `ID` and the desired percentiles to be computed. 
+
+We are interested in cold percentiles, therefore we calculate the extreme percentiles of the left tail.
+
+Eventually, we could also have provided two additional arguments to the function. These are `l_thresh` and `u_thresh`, which removes the observations which are below the `l_thresh` or above `u_thresh`. For example, since we are looking for cold percentile we could have add `u_thresh = 0` to filter out all temperatures above zero degree Celsius and leave just the cold observations. This can be interpreted as an upper bound of the cold percentiles which will never be above the `u_thresh`.
+
+```{r percentiles}
+#| label: percentiles
+
+tmin_min_pct <- calc_pct_day(tmin_village_c_80, p = c(0.01, 0.05, 0.1), yearly = TRUE)
+tmin_min_pct
+```
+
+The first two columns of the result identify the unique location and the month. The month is important as we compute the  statistic for each month to account for climatic seasonality.
+
+>Note that even if we compute the statitics for each month the unit of measure refer to the daily minimum temperature.
+
+
+### Merge with survey
+
+Now, we combine the extracted weather data with the village data using `merge_with_survey()`, which under the hood uses the variable `ID` as the key matching variable.
+
+```{r merge_tmin_pct}
+#| label: merge_tmin_pct
+
+tmin_pct_village <- merge_with_survey(village_coord, tmin_min_pct)
+tmin_pct_village
+```
+
+### Write
+As a final step we save the result for future calculation. 
+
+We save it as an `rds` object, which is the native R format. We do it as the next calculation will be in R and this format helps for the compression and reading of the data. However, if the data will be use in other software it is still possible to save in other format.  For example, `haven::write_dta()` for `dta` format or `data.table::fwrite()` for `csv`.
+
+```{r write}
+#| label: write
+
+dplyr::full_join(village_coord, 
+                 tmin_village_c, by = "ID") |>
+  dplyr::as_tibble() |>
+  saveRDS(file = file.path(path_to_data, "weather", "ERA5_Land", "AFG", 
+                           "daily",  "day_50_25_2m_tmp_min_village.rds"))
+
+
+saveRDS(tmin_pct_village,
+        file = file.path(path_to_data, "weather", "ERA5_Land", "AFG", 
+                         "percentile",  "pct_80_25_2m_tmp_min_village.rds"))
+```
+
