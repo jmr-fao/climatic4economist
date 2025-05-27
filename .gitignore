@@ -3,3 +3,7 @@
 .Rproj.user/
 .DS_Store
 *.tar.gz
+.Rproj.user
+.Rdata
+.httr-oauth
+.quarto
