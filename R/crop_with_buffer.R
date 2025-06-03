@@ -30,7 +30,7 @@ crop_with_buffer <- function(raster, vector, buffer = 0, buffer_unit = "native",
     if (!inherits(vector, "SpatVector")) stop("vector must be a SpatVector")
 
     # If buffer is in meters and data is lon-lat, project first
-    if (buffer_unit == "meters" && is.lonlat(raster)) {
+    if (buffer_unit == "meters" && terra::is.lonlat(raster)) {
         proj_crs <- get_utm_crs(vector)
         raster_proj <- project(raster, proj_crs)
         vector_proj <- project(vector, proj_crs)
