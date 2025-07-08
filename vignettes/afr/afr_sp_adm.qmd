@@ -70,9 +70,7 @@ The next steps are a bit convoluted. Lets split one by one.
 
   1. `list.files(path_to_survey, full.names = TRUE)`. The surveys are stored in two files. We use `list.files()` to list the files.
   2. `lapply(haven::read_dta)`. We use the `lapply()` to apply to each of them the function `haven::read_dta()`. This last function actually read `dta` files into R. The result are two separate block of data, each for each file. They are two separated item within a list. 
-  3. Since the data is still split, we need to use again `lapply()` to apply the function `dplyr::select()` to each block. `dplyr::select()` select the columns from a dataset. Which columns? `c(country, hhid, lat, lon, interview_date)`.
-  4. At this point we can bind the two separate data into a single one with the function `dplyr::bind_rows()`. We could have done it before but like this we ensured the two data sets have the same columns.
-  5. Now we want to define the year of each survey and a label for the surveys.
+  3. At this point we can bind the two separate data into a single one with the function `dplyr::bind_rows()`. We could have done it before but like this we ensured the two data sets have the same columns.
 
 ```{r read_survey}
 #| label: read_survey
@@ -82,10 +80,11 @@ srvy_all <- list.files(path_to_survey, pattern = "dta$", full.names = TRUE) |>
   dplyr::bind_rows() |>
   dplyr::group_by(country) |>
   dplyr::mutate(interview_date = clock::date_parse(interview_date, format = "%d/%m/%Y"),
-                survey_year = clock::get_year(median(interview_date)),
+                survey_year = clock::get_year(median(interview_date, na.rm = TRUE)),
                 survey = paste0(country, substr(survey_year, 3, 4)),
                 survey = gsub(" ", "", survey),
-                .before = hhid)
+                .before = hhid) |> 
+  dplyr::filter(survey != "Uganda19")
 
 surveys <- srvy_all$survey |> unique() |> sort()
 surveys
@@ -97,6 +96,8 @@ We can keep all the surveys together but the size can be a challenge. Therefore,
 #| label: no_coord_srvy
 
 no_coord_srvy <- c("Nigeria18", "Tanzania21", "Uganda19")
+no_coord_srvy <- c("Nigeria18", "Tanzania21")
+
 srvy_adm_cntry <- srvy_all |>
     dplyr::filter(survey %in% no_coord_srvy) |> 
     dplyr::select(-c(ea_id, TA_code, ea_code, 
@@ -116,7 +117,8 @@ srvy_adm_cntry <- srvy_all |>
                                                            NA_character_, .x)) )) |> 
   purrr::map(janitor::remove_empty, which = "cols")
 
-srvy_adm_cntry
+srvy_adm_cntry$Nigeria18 <- srvy_adm_cntry$Nigeria18 |> 
+  dplyr::filter(!is.na(admin2))
 ```
 
 ```{r ys_coord_srvy}
@@ -125,7 +127,8 @@ srvy_adm_cntry
 ys_coord_srvy <- setdiff(surveys, no_coord_srvy)
 
 srvy_coord_cntry <- srvy_all |>
-    dplyr::filter(!is.na(lat) & lat > -999999999) |>
+    dplyr::filter(survey %in% ys_coord_srvy) |> 
+    dplyr::filter(!is.na(lat) & lat > -999999999) |> #51353-50593
     dplyr::filter(!(lat == 0.00000 & lon == 0.00000)) |>
     dplyr::select(c(survey, country, hhid, lat, lon, interview_date)) |>
     dplyr::group_by(survey) |>
@@ -136,7 +139,7 @@ srvy_coord_cntry
 ```
 
 #### Spatial Data
-To spatial data is stored as `tiff` file or `nc`. We can read both of them them with the function `terra::rast()`.
+To spatial data is stored as `tiff` file or `nc`. We can read both of them with the function `terra::rast()`.
 
 Note how all the data sets have the same coordinate reference system (CRS), i.e. `EPSG:4326`. This is important because in this way all the data can "spatially" talk to each other.
 
@@ -180,7 +183,8 @@ adm_div <- read_geoBoundaries(path_to_adm_div,
                               iso = c("BFA", "ETH", "MLI", "MWI", "TZA", "TGO", "UGA"),
                               lvl = 2) |>
   setNames(c("BurkinaFaso22", "Ethiopia19", "Mali22", "Malawi19",
-             "Togo22",  "Tanzania21", "Uganda19"))
+             "Togo22",  "Tanzania21", "Uganda19")) |> 
+  purrr::discard_at("Uganda19")
 
 Nigeria <- read_geoBoundaries(path_to_adm_div,
                               iso = c("NGA"),
@@ -207,11 +211,16 @@ srvy_coord_geo <- srvy_coord_cntry |>
 #| label: georef_adm
 
 srvy_adm_geo <- srvy_adm_cntry
-srvy_adm_geo$Nigeria18 <- srvy_adm_cntry$Nigeria18 |> 
+srvy_adm_geo$Nigeria18 <- srvy_adm_cntry$Nigeria18 |>
   dplyr::mutate(adm_div_1 = stringr::str_to_title(admin2),
                 adm_div_1 = dplyr::case_when(
                   adm_div_1 == "Fct" ~ "Abuja Federal Capital Territory",
                   .default = adm_div_1))
+
+
+setdiff(srvy_adm_geo$Nigeria18$adm_div_1,
+        adm_div$Nigeria18$adm_div_1
+        )
 
 srvy_adm_geo$Tanzania21 <- srvy_adm_cntry$Tanzania21 |> 
   dplyr::mutate(adm_div_1 = stringr::str_to_title(region_name),
@@ -578,7 +587,7 @@ urca_adm <- purrr::map2(urca_cntry,
 
 ```
 
-For the extraction of the weather variables, we use another function `extract_cell_by_poly()`. Contrary to the function `extract_by_poly()`, this doesn't aggregate the values within the polygons but extract each all the cell values within the polygon separately. This is useful for us as we want to compute the long run climatic parameters for each cell and only later aggregate at the polygon level.
+For the extraction of the weather variables, we use another function `extract_cell_by_poly()`. Contrary to the function `extract_by_poly()`, this doesn't aggregate the values within the polygons but extract all the cell values within the polygon separately. This is useful for us as we want to compute the long run climatic parameters for each cell and only later aggregate at the polygon level.
 
 ```{r extract_weather}
 #| label: extract_weather

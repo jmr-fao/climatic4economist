@@ -24,6 +24,8 @@ The target audience includes economists who may have experience with statistical
 - [8: Compute the flood indicator based on spatial polygons](compute_flood_by_poly.qmd). 
 - [9: Compute the cold indicator based on spatial point](compute_cold_by_point.qmd). 
 - [10: Compute the cold indicator based on spatial polygons](compute_cold_by_poly.qmd). 
+- [11: Compute the cold indicator in multi country](compute_cold_multi_country.qmd). 
+- [12: Distance analysis](distance_analysis.qmd). 
 
 ## What do I need before starting?
 ### You need R and Rstudio

@@ -76,9 +76,11 @@ The next steps are a bit convoluted. Lets split one by one.
 ```{r read_survey}
 #| label: read_survey
 
-srvy_all <- list.files(path_to_survey, pattern = "dta$", full.names = TRUE) |>
+srvy_all <- list.files(path_to_survey, pattern = "cooridnates\\.dta$", full.names = TRUE) |>
   lapply(haven::read_dta) |>
-  lapply(dplyr::select, c(country, hhid, lat, lon, interview_date)) |>
+  lapply(\(x) dplyr::select(x, 
+                            dplyr::any_of(c("country",  "year",
+                                            "hhid", "lat", "lon", "interview_date")))) |>
   dplyr::bind_rows() |> 
   dplyr::group_by(country) |>
   dplyr::mutate(interview_date = clock::date_parse(interview_date, format = "%d/%m/%Y"),
@@ -114,14 +116,14 @@ Note how all the data sets have the same coordinate reference system (CRS), i.e.
 ```{r read_spatial}
 #| label: read_spatial
 
-pop <- list.files(path_to_pop , full.names = TRUE) |>
+pop <- list.files(path_to_pop, full.names = TRUE) |>
   lapply(terra::rast) |>
-  setNames(c("pop_2018", "pop_2019", "pop_2020")) |>
+  setNames(c("pop_2016", "pop_2017", "pop_2018", "pop_2019", "pop_2020")) |>
   terra::rast()
 
-nightlight <- list.files(path_to_nightlight, pattern = "20[12][891].*tif$", full.names = TRUE) |>
+nightlight <- list.files(path_to_nightlight, pattern = "20[12][67891].*tif$", full.names = TRUE) |>
   lapply(terra::rast) |>
-  setNames(c("nightlight_2018", "nightlight_2019", "nightlight_2021")) |>
+  setNames(c("nightlight_2016", "nightlight_2017", "nightlight_2018", "nightlight_2019", "nightlight_2021")) |>
   terra::rast()
 
 elevation <- terra::rast(path_to_elevation)
