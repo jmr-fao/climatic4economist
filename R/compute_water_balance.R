@@ -16,7 +16,7 @@
 #' compute_water_balance(pre, pet)
 
 compute_water_balance <- function(pre, pet) {
-    id_vars <- grep("ID|x_cell|y_cell", names(pre))
+    id_vars <- grep("ID|x_cell|y_cell|coverage", names(pre))
 
     water_balance <- pre[, -id_vars] + pet[, -id_vars]
     cbind(pre[, id_vars], water_balance)

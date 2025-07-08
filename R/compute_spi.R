@@ -9,6 +9,10 @@
 #'   observation in time.
 #' @param time_scale an integer, representing the time scale at which the SPEI /
 #'   SPI will be computed.
+#' @param iteracation optional character to be print before computation. Usually,
+#'  it is the name of the object on which the function is applied. This is useful
+#'  when the function is used inside an apply family function to keep track of the
+#'  iterations.
 #'
 #' @returns A \link[tibble]{tbl_df}, It must contains an `ID` variable and the
 #'   SPI observation in wide format, i.e. each column is a different
@@ -21,7 +25,8 @@
 #' @examples
 #' compute_spi(coord, time_scale = 1)
 
-compute_spi <- function(df, time_scale) {
+compute_spi <- function(df, time_scale, iteracation = NULL) {
+    if (!is.null(iteracation)) cat("Computing SPI:", iteracation, "\n")
     df |>
         dplyr::select(
             dplyr::any_of(c("ID", "ID_adm_div", "x_cell", "y_cell", "coverage_fraction")),
@@ -59,7 +64,7 @@ compute_spi <- function(df, time_scale) {
 #' spi_wide(data, scale = 1)
 
 spi_wide <- function(df_list, scale = 1) {
-    SPEI::spi(df_list$value, scale = scale, verbose = FALSE) |>
+    SPEI::spi(df_list$value, scale = scale, verbose = FALSE, na.rm = TRUE) |>
         fitted() |>
         t() |>
         as.data.frame() |>

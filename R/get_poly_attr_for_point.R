@@ -49,8 +49,9 @@ get_poly_attr_for_point <- function(point,
     if (nrow(point_out) > 0) {
         cat("Some spatial points are outside the polygon. They will be assigned to the closest polygon.\n")
         point_out_id <- point_out |>
-            dplyr::pull(setdiff(comm_var, geom))
-        cat("These are the points:", point_out_id)
+            #dplyr::pull(setdiff(comm_var, geom)) # I changed by select as pull only works to select one column from point_out
+            dplyr::select(setdiff(comm_var, geom))
+        cat("These are the points:", unlist(point_out_id))
 
         sf_points <- point_out |>
             terra::vect(geom = geom, crs = crs, keepgeom = TRUE) |>

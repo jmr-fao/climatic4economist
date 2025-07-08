@@ -4,7 +4,7 @@
 \alias{compute_spei}
 \title{Compute the SPEI}
 \usage{
-compute_spei(df, time_scale)
+compute_spei(df, time_scale, iteracation = NULL)
 }
 \arguments{
 \item{df}{A data frame. It must contains an \code{ID} variable and the
@@ -13,6 +13,11 @@ observation in time.}
 
 \item{time_scale}{an integer, representing the time scale at which the SPEI
 will be computed.}
+
+\item{iteracation}{optional character to be print before computation. Usually,
+it is the name of the object on which the function is applied. This is useful
+when the function is used inside an apply family function to keep track of the
+iterations.}
 }
 \value{
 A \link[tibble]{tbl_df}, It must contains an \code{ID} variable and the

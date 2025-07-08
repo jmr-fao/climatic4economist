@@ -23,7 +23,7 @@
 merge_with_survey <- function(survey,
                               new_value,
                               iteracation = NULL) {
-    if (!is.null(iteracation)) cat("meging with survey:", iteracation, "\n")
+    if (!is.null(iteracation)) cat("merging with survey:", iteracation, "\n")
 
     survey |>
         dplyr::select(-dplyr::matches("[0-9]{4}.[0-9]{2}")) |>
