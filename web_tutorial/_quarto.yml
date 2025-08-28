@@ -19,6 +19,8 @@ website:
           - text: Compute SPI
           - href: spi_by_points.qmd
           - href: spi_by_poly.qmd
+          - text: Spatial operations
+          - href: distance_density_updated.qmd
 
 format:
   html:

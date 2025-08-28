@@ -3,6 +3,7 @@
 export(above_threshold)
 export(agg_to_adm_div)
 export(aggregate_frequency)
+export(ave_dist_2shp)
 export(below_threshold)
 export(calc_par)
 export(calc_pct_day)

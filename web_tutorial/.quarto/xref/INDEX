@@ -22,5 +22,17 @@
   },
   "spi_by_poly.qmd": {
     "spi_by_poly.html": "4ad7ecfd"
+  },
+  "spei_by_point.qmd": {
+    "spei_by_point.html": "bcba52ee"
+  },
+  "spei_by_poly.qmd": {
+    "spei_by_poly.html": "75247c53"
+  },
+  "distance_density.qmd": {
+    "distance_density.html": "d7343230"
+  },
+  "distance_density_updated.qmd": {
+    "distance_density_updated.html": "ec201fa5"
   }
 }

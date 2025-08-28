@@ -1,0 +1,382 @@
+---
+title: "Tutorial Functions average distance and average density"
+author: "Luis Becerra-Valbuena"
+format:
+  html:
+    self-contained: true
+    code-tools: true
+    toc: true
+    toc-expand: 1
+    toc-depth: 2
+    toc-location: right-body
+editor: visual
+editor_options:
+  chunk_output_type: console
+vignette: >
+  %\VignetteIndexEntry{Vignette's Title}
+  %\VignetteEncoding{UTF-8}
+  %\VignetteEngine{quarto::html}
+---
+
+<!-- # This is to create package -->
+
+<!-- install.packages("roxygen2") -->
+
+<!-- library(roxygen2) -->
+
+<!-- usethis::create_package("C:/Users/YourName/Documents/myPackage") -->
+
+<!-- # inside package's R/ folder, add functions -->
+
+<!-- devtools::document() -->
+
+<!-- devtools::check() -->
+
+<!-- devtools::build() -->
+
+## Tutorial to calculate average distance and point density statistics
+
+This guide provides a step-by-step approach to compute the average distance and point density statistics for a target set of polygons/points coordinates in R. It uses own functions from `climatic4economist` package: `ave_dist_2shp()` and `ave_point_density_2shp()`. The inputs are `shapefile` files loaded as `sf_dataframe R objects` and the returning outputs are `dataframe` R objects.
+
+## Overview of Steps
+
+We will go through the following steps:
+
+1.  Load the data
+2.  Prepare the data
+3.  Compute the average distance to rivers for each `ID` (village, adm-div, etc.)
+4.  Compute the average point density of buildings for each `ID` (village, adm-div, etc.)
+
+## Loading packages
+
+```{r, echo = TRUE, results = "hide", message = FALSE, warning = FALSE}
+#| label: load-packages
+#| include: true
+
+library("dplyr")
+library("raster")
+library("sf")
+library("data.table")
+library("datawizard")
+library("zoo")
+library("doParallel")
+library("foreach")
+library("parallel")
+library("ncdf4")
+library("SPEI")
+library("ggplot2")
+library("foreign")
+library("tidyr")
+library("terra")
+library("stars")
+library("yarrr")
+library("wesanderson")
+#library("ClimateOperators")
+library("rlist")
+library("writexl")
+library("readxl")
+library("stringr")
+library("tidyr")
+library("miceadds")
+library("stargazer") #Display table on latex format
+library("foreign")
+library("dplyr") #data management
+library("tidyverse") #data management
+library("tibble") # tibbles
+library("caret")
+library("naniar")
+library("mapproj")
+library("ggmap")
+library("RgoogleMaps")
+library("mapview")
+library("leaflet")
+library("haven")
+library("rnaturalearth")
+library("reshape2")
+library("sjlabelled")
+library("RColorBrewer")
+library("climatic4economist")
+devtools::document() 
+```
+
+```{r}
+#| echo: false
+cat("All packages loaded\n")
+
+```
+
+## Setting up working directory and path to wrapper functions
+
+Working directory set up as default with folder's location.
+
+```{r, echo = TRUE, results = "hide"}
+
+# Otherwise use
+#setwd("C:/Users/X/OneDrive - Food and Agriculture Organization/PROJECT11_GEOINDICATORS_REPOSITORY")
+
+rm(list = ls()) # remove existing objects
+```
+
+```{r set_up}
+#| label: set_up
+
+# load wrapper functions
+# source(file.path(#"web_tutorial",
+#                  "functions.R"))
+
+path_to_project <- file.path("..", "..",
+                        "data", "data_project", "benin",
+                        "PROJECT11_GEOINDICATORS_REPOSITORY")
+```
+
+## Calculating average distance to rivers for each polygon `ID`
+
+## Loading inputs
+
+All input have to be set up as EPSG4326 or WGS84 as coordinate system
+
+#### Shapefile extension for the target country (Benin)
+
+This uses GADM database (see [GADM](https://geodata.ucdavis.edu/gadm/gadm4.1/))
+
+```{r,echo = TRUE, results = "hide"}
+
+path_gadm3 <- file.path(path_to_project,
+                        "INPUT",
+                        "Benin_shp","Benin-ADMlevels","Shapefile",
+                        "BEN_shp","gadm41_BEN_3.shp")
+
+gadm3 <- st_as_sf(st_read(path_gadm3)) |>
+  dplyr::select(-NL_NAME_1, -NL_NAME_2, -NL_NAME_3, 
+                -VARNAME_3, -CC_3, -HASC_3,-TYPE_3,
+                -ENGTYPE_3,-COUNTRY)
+```
+
+```{r}
+gadm3 <- st_transform(gadm3, 4326) #defining as EPSG4326 or WGS84
+gadm3
+```
+
+#### Shapefile target country (Benin)
+
+This file is the shapefile with the polygon's structure. Each `ID` is enumerated in column `id_gns`. The original file with X, Y villages' coordinates can be found here [Villages Benin](https://geonames.nga.mil/geonames/GNSData/). The file was modified and non-intersecting buffers (using Voronoi's structure) of 2km were constructed using the villages' coordinates.
+
+```{r,echo = TRUE, results = "hide"}
+
+path_polygons_gns <- file.path(path_to_project,
+                        "INPUT","QGIS_map_voronoi",
+                        "villages_voronoibuffer_adm4_gns.shp")
+
+polygons_gns <- st_as_sf(st_read(path_polygons_gns))
+```
+
+```{r}
+polygons_gns <- st_transform(polygons_gns, 4326) #defining as EPSG4326 or WGS84
+polygons_gns
+```
+
+#### Shapefile `shape_input`
+
+We will use the shapefile of African Rivers from FAO as our `shape_input` (see [FAO rivers1](https://data.apps.fao.org/map/catalog/srv/eng/catalog.search#/metadata/b891ca64-4cd4-4efd-a7ca-b386e98d52e8) and here [FAO rivers2](https://data.apps.fao.org/catalog/iso/b891ca64-4cd4-4efd-a7ca-b386e98d52e8))
+
+```{r,echo = TRUE, results = "hide"}
+
+path_rivers_fao <- file.path(path_to_project, "INPUT","FAO_GIS","rivers_africa","rivers_africa_37333.shp")
+
+rivers_fao <- st_as_sf(st_read(path_rivers_fao))
+```
+
+```{r}
+rivers_fao <- st_transform(rivers_fao, 4326) #defining as EPSG4326 or WGS84
+rivers_fao
+```
+
+As the shapefile of rivers corresponds to all Africa, we will crop it to country's area using the extension from the object `gamd`, which has the extension of Benin. It will be enlarged a bit in case to guarantee it does contain all country's borders. Notice also that for using the function `raster::crop`, we need to define the object as an `Spatial` one, do the cropping and define it again as `sf_dataframe`, for which, we need to define it again with the same coordinate system WGS84 (otherwise our function `ave_point_density_2shp` will trew an error).
+
+```{r}
+ext_benin<-raster::extent(gadm3)
+ext_benin@xmin<-ext_benin@xmin-0.5
+ext_benin@xmax<-ext_benin@xmax+0.5
+ext_benin@ymin<-ext_benin@ymin-0.5
+ext_benin@ymax<-ext_benin@ymax+0.5
+
+#cropping
+rivers_fao <- st_as_sf(raster::crop(as(rivers_fao, "Spatial"),ext_benin))
+
+rivers_fao <- st_transform(rivers_fao, 4326) #defining as EPSG4326 or WGS84 again as I only defined as sf dataframe before
+rivers_fao
+```
+
+## Calculating average distance to rivers for each `ID` polygon in `target`
+
+This wrapper function calculates the average distance (in m) of each `ID` element in `target` to the object `shape_input`. It uses distanceFromPoints which works better, faster than `st_distance` function. For the moment, the function works better for UTM coordinate system.
+
+`country_ext` defines the whole extension of the country, including country borders. Here, we use `gadm3` is our country's extension for Benin.
+
+`target` is the shapefile (adm-div such as communes, villages or HH coordinates) for which the average distance will be calculated. We use `polygons_gns` as our target polygon for which we will calculate the distance.
+
+`shape_input` is the shapefile for which a raster of distances will be calculated (eg. roads, rivers, etc.). In our case, we use `rivers_fao` as the object from which the distances will be calculated.
+
+`UTM` corresponds to the country's location in the UTM coordinate system. As for calculating distances it is more convenient to use meters instead of degrees, and the coordinate system needs to be transformed into the UTM of the country, which is more precise around the equator. We define `UTM=31`, which corresponds to Benin. Otherwise, it uses default at the global level (3857) ***(under development).***
+
+`res_raster` is the resolution in ***meters*** for the raster of distances that will be created. A higher resolution increase the time of processing. We define a resolution of 10000 which corresponds to 10 km. Internally, it will create a raster of distances of 10 km, and each pixel size of 10kmX10km.
+
+`name_dist` name of the average distance variable constructed. It will be created as ave_dist_NAME with name_dist="NAME" giving the name of the distance variable that will be created. In our case, `ave_dist_rivers`.
+
+```{r}
+
+ave_dist_rivers <- ave_dist_2shp(country_ext=gadm3,target=polygons_gns,shape_input=rivers_fao,UTM=31,res_raster=10000,name_dist="rivers")
+ave_dist_rivers[1:10, ] #print first 10 elements
+```
+
+## Calculating average density to point-buildings for each `ID` polygon in `target`
+
+This wrapper function calculates the average density of points for each `ID` element of `target`to the object `shape_input` .
+
+## Using Buildings dataset as `shape_input`
+
+While some of the objects are already defined as in the previous function (`gadm3` and `polygons_gns`), we will use as `shape_input` a shapefile that contains the points with buildings located in the country (see [OCHA Datahum](https://data.humdata.org/search?q=benin&ext_search_source=main-nav)). The file comes in zip format as it is opened, and transformed as an `sf_dataframe`
+
+```{r,echo = TRUE, results = "hide"}
+
+path2buildings <- file.path(path_to_project,
+                        "INPUT", "Benin_OCRA","Buildings","hotosm_ben_buildings_polygons_shp.zip") #using zip
+
+# Extract the ZIP file and Find the file among the extracted files. There is only one
+output_directory_buildings <- tempdir()  # Using a temporary directory
+unzip(path2buildings, exdir = output_directory_buildings)
+extracted_files <- list.files(output_directory_buildings, full.names = TRUE)
+buildings_file_path <- extracted_files[grep("\\.shp$", extracted_files)]
+
+#reading file
+buildings_ocra <- st_as_sf(st_read(buildings_file_path))
+
+```
+
+```{r}
+buildings_ocra <- st_transform(buildings_ocra, 4326) #defining as EPSG4326 or WGS84
+buildings_ocra
+```
+
+Below we describe the inputs for the function:
+
+`country_ext` defines the whole extension of the country, including country borders. Here, we use `gadm3` is our country's extension for Benin.
+
+`target` is the shapefile (adm-div such as communes, villages or HH coordinates) for which the average point density will be calculated. We use `polygons_gns` as our target polygon for which we will calculate the point density.
+
+`shape_input` is the shapefile from which to calculate points density (eg. buildings, roads, rivers, etc.) In our case, it will be our building's object `buildings_ocra`.
+
+`res_raster` is the resolution in **degrees** for the raster of distances that will be created and applied to \`shape_input' (0.1 could be equivalent to 10km or 0.1\*100000=10000m around the Equator). A higher resolution increases the time of processing.
+
+`name_dist` name of the average density variable constructed. It will be created as ave_den_NAME with name_density="NAME In our case, `ave_den_allbuildings`.
+
+```{r}
+ave_den_allbuildings <-ave_point_density_2shp(country_ext=gadm3,
+                                              target=polygons_gns,
+                                              shape_input=buildings_ocra,
+                                              res_raster=0.1,
+                                              name_density="allbuildings")
+ave_den_allbuildings[1:10, ] #print first 10 elements
+```
+
+## Using points rather than non-intersecting buffers
+
+Testing function for points:
+
+```{r,echo = TRUE, results = "hide"}
+
+path_points_gns <- file.path(path_to_project,
+                        "INPUT","QGIS_map_voronoi","villages_points_adm4_gns.shp")
+
+points_gns <- st_as_sf(st_read(path_points_gns))
+```
+
+```{r}
+points_gns <- st_transform(points_gns, 4326) #defining as EPSG4326 or WGS84
+points_gns
+```
+
+### Calculating distance
+
+```{r}
+ave_dist_rivers_points <- ave_dist_2shp(country_ext=gadm3,target=points_gns,shape_input=rivers_fao,UTM=31,res_raster=10000,name_dist="rivers")
+ave_dist_rivers_points[1:10, ] #print first 10 elements
+```
+
+#### Comparing results by polygons and by points
+
+```{r,echo = TRUE, results = "hide"}
+p1 <- hist(ave_dist_rivers_points$ave_dist_rivers)
+p2 <- hist(ave_dist_rivers$ave_dist_rivers)
+```
+
+```{r}
+plot(p1, col=rgb(0,0,1,1/4))  # first histogram
+plot(p2, col=rgb(1,0,0,1/4), add=T)  # add
+legend("topright", legend=c( "ave_dist_rivers_points","ave_dist_rivers"), 
+       fill=c(rgb(0,0,1,1/4), rgb(1,0,0,1/4)), border=NA)
+```
+
+<!-- ## Using survey data Suriname -->
+
+<!-- We use two waves with potentially different locations. They are stored as `dta` files, and we read them using `haven::read_dta()`. We select our hhid, survey coordinates, and the interview dates with the function `dplyr::select()`.The first wave does not include the interview date. The two waves are merged using `dplyr::bind_rows()`. -->
+
+<!-- ```{r} -->
+
+<!-- path_to_wave_1 <- file.path("..", "INPUT", "survey", "wave 1", -->
+
+<!--                             "RT001_Public.dta") -->
+
+<!-- path_to_wave_2 <- file.path("..", "INPUT", "survey", "wave 2",  -->
+
+<!--                             "2022 RT001_Housing_plus.dta") -->
+
+<!-- wave_1 <- haven::read_dta(path_to_wave_1) |> -->
+
+<!--   dplyr::select(hhid, lat_cen, long_cen) |>  -->
+
+<!--   dplyr::mutate(wave = 1) -->
+
+<!-- wave_2 <- haven::read_dta(path_to_wave_2) |> -->
+
+<!--   dplyr::select(hhid, end_date_n, lat_cen, long_cen) |> -->
+
+<!--   dplyr::mutate(wave = 2) -->
+
+<!-- survey <- dplyr::bind_rows(wave_1, wave_2) -->
+
+<!-- head(survey) -->
+
+<!-- ``` -->
+
+<!-- #### Georeference the survey and define as sf_dataframe -->
+
+<!-- We filter the survey by its unique set of X, Y coordinates and set it up as a `sf_dataframe`. -->
+
+<!-- ```{r} -->
+
+<!-- survey_unique <- survey |> dplyr::distinct(lat_cen,long_cen) |> drop_na(lat_cen,long_cen)  -->
+
+<!-- survey_geo <- st_as_sf(survey_unique, coords = c("long_cen", "lat_cen"), crs = 4326) # WGS84 CRS -->
+
+<!-- ``` -->
+
+<!-- #### Shapefile extension for the target country (Surinam) -->
+
+<!-- This uses GADM database (see [GADM](https://geodata.ucdavis.edu/gadm/gadm4.1/)) -->
+
+<!-- ```{r,echo = TRUE, results = "hide"} -->
+
+<!-- path_gadm2_sur <- file.path("..", "INPUT","Suriname_shp","gadm41_SUR_2.shp")   -->
+
+<!-- gadm2_sur <- st_as_sf(st_read(path_gadm2_sur)) |>   dplyr::select(-NL_NAME_1, -NL_NAME_2,  -CC_2, -HASC_2,-TYPE_2,-ENGTYPE_2,-COUNTRY) -->
+
+<!-- ``` -->
+
+<!-- ```{r} -->
+
+<!-- gadm2_sur <- st_transform(gadm2_sur, 4326) #defining as EPSG4326 or WGS84  -->
+
+<!-- gadm2_sur -->
+
+<!-- ``` -->

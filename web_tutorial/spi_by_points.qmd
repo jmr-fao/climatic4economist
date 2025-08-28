@@ -8,9 +8,10 @@ title: "3: Compute the Standardize Precipitation Index based on spatial point."
 
 In this tutorial, we extract the CHIRPS precipitation observations in Suriname, based on the centroids of the Principal Sampling Units (PSU) of the Suriname Survey of Living Conditions for the years 2016/17 and 2022. Based on the extracted precipitation, the tutorial shows how to compute the Standardized Precipitation Index (SPI) and merge it with the survey based on the date of interviews.
 
-
 ## Code
+
 ### Set Up
+
 We start by setting up the stage for our analysis.
 
 First, we load the necessary packages. We load only `climatic4economist` package that contains several functions meant to extract and merge spatial variables with surveys. During the tutorial we will use other packages but instead of loading all the package at the begging we will call specific function each time.
@@ -24,10 +25,10 @@ library(climatic4economist)
 
 In the setup, we also want to create the paths to the various data sources and load the necessary functions for extraction. Note `..` means one step back to the folder directory, i.e. one folder back.
 
-Note that how to set up the paths depends on your folder organization but there are overall two approaches: 
+Note that how to set up the paths depends on your folder organization but there are overall two approaches:
 
-1. you can use the `R project`, by opening the project directly you don't need to set up the path to the project. Automatically the project figures out on its own where it is located in the computer and set that path as working folder. 
-2. you can manually set the working folder with the function `setwd()`.
+1.  you can use the `R project`, by opening the project directly you don't need to set up the path to the project. Automatically the project figures out on its own where it is located in the computer and set that path as working folder.
+2.  you can manually set the working folder with the function `setwd()`.
 
 ```{r paths}
 #| label: paths
@@ -37,10 +38,10 @@ path_to_data <- file.path("..", # <1>
                           "..", "data") # <2>
 
 # survey 
-path_to_wave_1 <- file.path(path_to_data, "survey", "surname", "wave 1",
+path_to_wave_1 <- file.path(path_to_data, "survey", "suriname", "wave 1",
                             "RT001_Public.dta")
 
-path_to_wave_2 <- file.path(path_to_data, "survey", "surname", "wave 2", 
+path_to_wave_2 <- file.path(path_to_data, "survey", "suriname", "wave 2", 
                             "2022 RT001_Housing_plus.dta")
 
 # administrative division
@@ -52,13 +53,16 @@ path_to_pre_monthly <- file.path(path_to_data, "weather", "CHIRPS", "monthly",
 # to result folder
 path_to_result <- file.path(path_to_data, "result")
 ```
-1. concatenate the string to make a path
-2. `..` means one folder back
+
+1.  concatenate the string to make a path
+2.  `..` means one folder back
 
 <br>
 
 ### Read the data
+
 #### Survey
+
 We begin by reading the surveys, which in this case consist of two waves with potentially different locations. As a result, we need to load both waves. The waves are stored as `dta` files, so we use the `haven::read_dta()` function to read them.
 
 We only need the hhid, the survey coordinates, and the interview dates. We use `dplyr::select()` to choose these variables. This passage is optional and we bring with us all the variables, but we won't use them. Note that the first wave does not include the interview date.
@@ -83,8 +87,8 @@ survey <- dplyr::bind_rows(wave_1, wave_2)
 head(survey)
 ```
 
-
 #### Aministrative Divisions
+
 We read the spatial file containing the national borders of Suriname, we use `read_GAUL()` to load it. By printing the spatial data, we can obtain key information, such as the dimensions (number of rows and variables), the geometry (which indicates the type of spatial object), and the coordinate reference system (CRS), which links the coordinates to precise locations on the Earth's surface. The CRS is particularly important when working with different spatial datasets, as mismatched CRSs can prevent the datasets from aligning correctly.
 
 ```{r read_adm_div}
@@ -95,6 +99,7 @@ adm_div
 ```
 
 #### Weather
+
 Finally, we load the precipitation data. Climatic data typically comes in the form of raster data. A raster represents a two-dimensional image as a rectangular matrix or grid of pixels. These are spatial rasters because they are georeferenced, meaning each pixel (or "cell" in GIS terms) represents a square region of geographic space. The value of each cell reflects a measurable property (either qualitative or quantitative) of that region. In this case, the values are monthly precipitation that fell in that region. We use the function `terra::rast()` to load the raster data.
 
 This particular raster has global coverage, so we crop it to focus on the country area to reduce its size. Although this step is not strictly necessary, it helps decrease the memory load and makes visualizations more manageable. We use the function `crop_with_buffer()` for this purpose.
@@ -103,7 +108,7 @@ When we print the raster, we obtain several key details. The dimension tells us 
 
 We also rename the raster layers to reflect the corresponding dates for each layer, as this is useful if we want to track the dates. We use `terra::time()` to extract the dates.
 
-::: {.callout-note}
+::: callout-note
 Note that rasters can store time information in different ways, so it may not always be possible to retrieve dates in this manner. A common alternative is for dates to be embedded in the layer names, in which case we wouldn’t need to rename the layers.
 :::
 
@@ -211,6 +216,7 @@ We see that now the number of rows is `r nrow(unique_cell)`, this is the actual 
 <br>
 
 ### Compute the SPI
+
 We now compute the SPI with the function `compute_spi()`. This function requires the precipitation time series for each location and the time scale at which the SPI is computed.
 
 To compute the SPI, it is recommended to use at least 30 years of observation to ensure a good estimation of the parameters. More years can strength the estimation but the results can be affected by climate change: if there have been a change in the climate parameters, old observations might be not indicative of the current situation affecting the estimation. There are no clear rule on this, so we leave add the possibility to select the time range of observation with the function `select_by_dates()`. The function requires both or just one between the starting date, `from`, and the end date `to`. If both are provide the the function select between the two dates, if only `from` is provided the function selects all date after, and if only `to` is provided the function selects all date before.
@@ -239,8 +245,8 @@ spi1
 
 <br>
 
-
 ### Merge with survey
+
 Now, we combine the extracted weather data with the survey data using `ID` as the key matching variable.
 
 ```{r merge_spi}
@@ -256,11 +262,12 @@ We are back at `r nrow(spi3_survey)`, which matches the original survey.
 <br>
 
 ### Select based on the interview
+
 Now that we have merged the SPI values with the survey, we can select just the relevant observations.
 
 If we want to select just a subsets of observations we can use the `select_by_dates()` function. If we want to select based on the date of interview of the survey, we can use `select_by_interview()`. This last function requires the variable that contains the dates of interview and the interval to select based on the dates. The interval must be express in number of months or in number years. The `wide` argument specifies how the output should be reported, in wide with each time observation as separate columns, or long, with all observation in one column.
 
->Note that current version of the `select_by_interview()` functions drops the observations with missing date of interview.
+> Note that current version of the `select_by_interview()` functions drops the observations with missing date of interview.
 
 What is relevant depends on the particular application, but we can agree that we don't want to assign weather observations that happened after the interviews, as these cannot influence the answers.
 
@@ -283,7 +290,6 @@ spi3_hh <- select_by_interview(spi3_survey,
 
 The final step of the code is to save the result. In this case, we save it as a `dta` file using the `haven::write_dta()` function.
 
-
 ```{r write_data}
 #| label: write_data
 #| eval: false
@@ -297,23 +303,26 @@ haven::write_dta(spi3_hh, file.path(path_to_result, "spi_3.dta"))
 
 ## Take home messages
 
-* When working with multiple spatial data:
-  
-  1. remember to control the Coordinate Reference System of all dataset
-  2. plot the data to check everything is going well
-  
-* based on the typology of data we use different function to read them
-    * for `dta` use `haven::read_dta() or` and `haven::_write_dta()`
-    * for spatial vectors `read_GAUL()` for administrative divisions in specific country and level, otherwise `terra::vect()`
-    * for spatial raster use `terra::rast()`
+-   When working with multiple spatial data:
 
-* Extraction
-    * since many household share the same locations, we take advantage of this by extracting the weather data only at the unique locations, we achieve this with the function `prepare_coord()`.
-    * same of these unique locations may fall within the same value cells, so the actual information might be even lower.
-    
+    1.  remember to control the Coordinate Reference System of all dataset
+    2.  plot the data to check everything is going well
+
+-   based on the typology of data we use different function to read them
+
+    -   for `dta` use `haven::read_dta() or` and `haven::_write_dta()`
+    -   for spatial vectors `read_GAUL()` for administrative divisions in specific country and level, otherwise `terra::vect()`
+    -   for spatial raster use `terra::rast()`
+
+-   Extraction
+
+    -   since many household share the same locations, we take advantage of this by extracting the weather data only at the unique locations, we achieve this with the function `prepare_coord()`.
+    -   same of these unique locations may fall within the same value cells, so the actual information might be even lower.
+
 <br><br>
-  
+
 ## Appendix
+
 ### Want to know about the data?
 
 #### Precipitation
@@ -343,20 +352,16 @@ For extra info look [here](https://openknowledge.worldbank.org/entities/publicat
 
 The Global Administrative Unit Layers (GAUL) 2024 is a vector dataset compiling the most recent available information on administrative boundaries from multiple sources, produced by FAO from 2022 to 2024 in the framework of the Hand-in-Hand Initiative and the Geospatial Data Platform activities.
 
-The GAUL 2024 aims at maintaining global layers with a unified coding system at country, first (e.g. departments), and second (e.g. districts) administrative levels.
-The data, sourced and processed from the United Nations Second Administrative Level Boundaries (UN-SALB) programme and from other relevant data sources, was complemented by the UN-FAO-CSI AgroInformatics Geospatial Analysis team with data from official geospatial data producers. Country boundaries were processed against UN official recognized borders (UN-map 2018), and the administrative subdivisions were checked for geometry and topology, then corrected and validated.
-The administrative boundaries dataset at level 1 and 2 (Sub-national level) is part of the Global Administrative Unit Layers (GAUL) dataset series which includes information on administrative units for all the countries in the world, providing a contribution to the standardization of the spatial dataset representing administrative units.
-The administrative boundaries at the level 1 dataset distinguishes States, Provinces, Departments and equivalent. The administrative boundaries at the level 2 dataset distinguishes Districts and equivalent.
+The GAUL 2024 aims at maintaining global layers with a unified coding system at country, first (e.g. departments), and second (e.g. districts) administrative levels. The data, sourced and processed from the United Nations Second Administrative Level Boundaries (UN-SALB) programme and from other relevant data sources, was complemented by the UN-FAO-CSI AgroInformatics Geospatial Analysis team with data from official geospatial data producers. Country boundaries were processed against UN official recognized borders (UN-map 2018), and the administrative subdivisions were checked for geometry and topology, then corrected and validated. The administrative boundaries dataset at level 1 and 2 (Sub-national level) is part of the Global Administrative Unit Layers (GAUL) dataset series which includes information on administrative units for all the countries in the world, providing a contribution to the standardization of the spatial dataset representing administrative units. The administrative boundaries at the level 1 dataset distinguishes States, Provinces, Departments and equivalent. The administrative boundaries at the level 2 dataset distinguishes Districts and equivalent.
 
 Suggested citation:
 
-* FAO. 2024. Global Administrative Unit Layers (GAUL). [Accessed on [DD Month YYYY]]. https://data.apps.fao.org/?lang=en. Licence: CC-BY-4.0 
+-   FAO. 2024. Global Administrative Unit Layers (GAUL). \[Accessed on \[DD Month YYYY\]\]. https://data.apps.fao.org/?lang=en. Licence: CC-BY-4.0
 
-It is possible to find additional information: 
+It is possible to find additional information:
 
-* [here](https://data.apps.fao.org/catalog/dataset/global-administrative-unit-layers-gaul-2024) 
+-   [here](https://data.apps.fao.org/catalog/dataset/global-administrative-unit-layers-gaul-2024)
 
-The data can be freely download from 
+The data can be freely download from
 
-* [here](https://data.apps.fao.org/catalog/dataset/34f97afc-6218-459a-971d-5af1162d318a).
-
+-   [here](https://data.apps.fao.org/catalog/dataset/34f97afc-6218-459a-971d-5af1162d318a).

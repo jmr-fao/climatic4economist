@@ -1,0 +1,645 @@
+---
+title: "SPEI indicator for the World Bank Project"
+author: "JMR"
+toc: true
+toc-expand: 1
+toc-depth: 2
+format:
+  html:
+    self-contained: true
+    code-tools: true
+    toc-location: right-body
+  docx: 
+    toc-location: body
+editor: source
+editor_options:
+  chunk_output_type: console
+vignette: >
+  %\VignetteIndexEntry{Vignette's Title}
+  %\VignetteEncoding{UTF-8}
+  %\VignetteEngine{quarto::html}
+---
+
+## Code
+### Set Up
+We start by setting up the stage for our analysis. 
+First, we load the necessary packages. We load only `climatic4economist` package that contains several functions meant to extract and merge spatial variables with surveys. During the tutorial we will use other packages but instead of loading all the package at the begging we will call specific function each time.
+
+```{r packages}
+#| label: packages
+
+library(climatic4economist)
+```
+
+Then, we defines the paths to reach the surveys and spatial data.
+```{r paths}
+#| label: paths
+
+path_to_data <- file.path(#"..",
+                          "..", "data")
+
+path_to_survey <- file.path(path_to_data, "survey", "AFR")
+
+path_to_pre <- file.path(path_to_data, "weather", "ERA5_Land", "monthly_pre",
+                         "era5_monthly_avg_total_pre_50_25.nc")
+path_to_evo <- file.path(path_to_data, "weather", "ERA5_Land", "monthly_evo",
+                         "era5_monthly_total_evo_50_25.nc")
+
+path_to_adm_div <- file.path(path_to_data, "adm_div", "geoBoundaries")
+path_to_result <- file.path(path_to_data, "result")
+```
+
+### Read the Data
+#### Survey Data
+We start by reading the surveys data. The surveys must have an id that uniquely identifies the household and the coordinates of their interviews.
+
+The next steps are a bit convoluted. Lets split one by one.
+
+  1. `list.files(path_to_survey, full.names = TRUE)`. The surveys are stored in two files. We use `list.files()` to list the files.
+  2. `lapply(haven::read_dta)`. We use the `lapply()` to apply to each of them the function `haven::read_dta()`. This last function actually read `dta` files into R. The result are two separate block of data, each for each file. They are two separated item within a list. 
+  3. At this point we can bind the two separate data into a single one with the function `dplyr::bind_rows()`. We could have done it before but like this we ensured the two data sets have the same columns.
+
+```{r read_survey}
+#| label: read_survey
+
+srvy_all <- list.files(path_to_survey, pattern = "es\\.dta$", full.names = TRUE) |>
+  lapply(haven::read_dta) |>
+  dplyr::bind_rows() |>
+  dplyr::group_by(country) |>
+  dplyr::mutate(interview_date = clock::date_parse(interview_date, format = "%d/%m/%Y"),
+                survey_year = clock::get_year(median(interview_date, na.rm = TRUE)),
+                survey = paste0(country, substr(survey_year, 3, 4)),
+                survey = gsub(" ", "", survey),
+                .before = hhid) |> 
+  dplyr::filter(survey != "Uganda19")
+
+surveys <- srvy_all$survey |> unique() |> sort()
+surveys
+```
+
+We can keep all the surveys together but the size can be a challenge. Therefore, we split them with the function `dplyr::group_split()`. Now, each survey is a separate block, but they are all stored in the same list.
+
+```{r no_coord_srvy}
+#| label: no_coord_srvy
+
+no_coord_srvy <- c("Nigeria18", "Tanzania21", "Uganda19")
+no_coord_srvy <- c("Nigeria18", "Tanzania21")
+
+srvy_adm_cntry <- srvy_all |>
+    dplyr::filter(survey %in% no_coord_srvy) |> 
+    dplyr::select(-c(ea_id, ea_code, #TA_code, 
+                     zone_code, city_code, subcity_code)) |>
+    dplyr::mutate(dplyr::across(.cols = dplyr::where(is.character),
+                                .fns = ~ifelse(.x == "", NA_character_, .x)),
+                  dplyr::across(.cols = dplyr::where(labelled::is.labelled),
+                                .fns = labelled::to_character)) |>
+    dplyr::group_by(survey) |>
+    dplyr::group_split() |>
+    purrr::map(janitor::remove_empty,
+               which = "cols") |>
+    setNames(no_coord_srvy) |> 
+  purrr::map(\(x)  x |> 
+               dplyr::mutate(dplyr::across(.cols = dplyr::where(is.character),
+                                           .fns = ~ ifelse(.x == "" | grepl("CONFI", .x),
+                                                           NA_character_, .x)) )) |> 
+  purrr::map(janitor::remove_empty, which = "cols")
+
+```
+
+```{r ys_coord_srvy}
+#| label: ys_coord_srvy
+
+ys_coord_srvy <- setdiff(surveys, no_coord_srvy)
+
+srvy_coord_cntry <- srvy_all |>
+    dplyr::filter(survey %in% ys_coord_srvy) |> 
+    dplyr::filter(!is.na(lat) & lat > -999999999) |> #51353-50593
+    dplyr::filter(!(lat == 0.00000 & lon == 0.00000)) |>
+    dplyr::select(c(survey, country, hhid, lat, lon, interview_date)) |>
+    dplyr::group_by(survey) |>
+    dplyr::group_split() |>
+    setNames(ys_coord_srvy)
+
+srvy_coord_cntry
+```
+
+#### Weather Data
+To spatial data is stored as `tiff` file or `nc`. We can read both of them with the function `terra::rast()`.
+
+Note how all the data sets have the same coordinate reference system (CRS), i.e. `EPSG:4326`. This is important because in this way all the data can "spatially" talk to each other.
+
+```{r read_spatial}
+#| label: read_spatial
+
+pre <- terra::rast(path_to_pre)
+names(pre) <- terra::names(pre) |> second_to_date()
+
+evo <- terra::rast(path_to_evo)
+names(evo) <- terra::names(evo) |> second_to_date()
+```
+
+#### Administrative Boundaries
+We now move to read the administrative divisions. We use the function `read_adm_div()` to do so. This function looks for spatial polygons for the `iso` and `lvl` provided provided.
+
+Even if we have the coordinates from the survey, we will extract some spatial variables at the administrative division.
+
+```{r read_adm_div}
+#| label: read_adm_div
+
+adm_div <- read_geoBoundaries(path_to_adm_div,
+                              iso = c("BFA", "ETH", "MLI", "MWI", "TZA", "TGO", "UGA"),
+                              lvl = 2) |>
+  setNames(c("BurkinaFaso22", "Ethiopia19", "Mali22", "Malawi19",
+             "Togo22",  "Tanzania21", "Uganda19")) |> 
+  purrr::discard_at("Uganda19")
+
+Nigeria <- read_geoBoundaries(path_to_adm_div,
+                              iso = c("NGA"),
+                              lvl = 1)
+adm_div$Nigeria18 <- Nigeria
+
+adm_div <- adm_div[sort(names(adm_div))]
+```
+
+
+### Georeference the Surveys
+```{r georef_coord}
+#| label: georef_coord
+
+srvy_coord_geo <- srvy_coord_cntry |> 
+  list(purrr::keep_at(adm_div, ys_coord_srvy), names(srvy_coord_cntry)) |>
+  purrr::pmap(get_poly_attr_for_point)
+
+```
+
+```{r georef_adm}
+#| label: georef_adm
+
+srvy_adm_geo <- srvy_adm_cntry
+srvy_adm_geo$Nigeria18 <- srvy_adm_cntry$Nigeria18 |>
+  dplyr::mutate(adm_div_1 = stringr::str_to_title(admin2),
+                adm_div_1 = dplyr::case_when(
+                  adm_div_1 == "Fct" ~ "Abuja Federal Capital Territory",
+                  .default = adm_div_1))
+
+srvy_adm_geo$Tanzania21 <- srvy_adm_cntry$Tanzania21 |> 
+  dplyr::mutate(adm_div_1 = stringr::str_to_title(region_name),
+                adm_div_2 = stringr::str_to_title(district_name),
+                
+                adm_div_1 = dplyr::case_when(
+                  adm_div_1 == "Dar Es Salaam" ~ "Dar es Salaam",
+                  adm_div_1 == "Kaskazini Pemba" ~ "North Pemba",
+                  adm_div_1 == "Kaskazini Unguja" ~ "Zanzibar North",
+                  adm_div_1 == "Kusini Pemba" ~ "South Pemba",
+                  adm_div_1 == "Kusini Unguja" ~ "Zanzibar South & Central",
+                  adm_div_1 == "Mjini Magharibi Unguja" ~ "Zanzibar Urban/West",
+                  # Songwe was created the 2016 from the western half of Mbeya Region
+                  adm_div_1 == "Songwe" ~ "Mbeya", 
+                  
+                  # wrong adm_div based on district
+                  adm_div_2 == "Masasi Rural" ~ "Mtwara", 
+                  adm_div_2 == "Kigamboni" ~ "Dar es Salaam", 
+                  grepl("Kahama", adm_div_2) & adm_div_1 == "Katavi" ~ "Shinyanga",  # !!!
+                  adm_div_2 == "Chakechake" ~ "South Pemba", 
+                  adm_div_2 == "Kinondoni" ~ "Dar es Salaam", 
+                  adm_div_2 == "Songea" ~ "Ruvuma",
+                  grepl("Songea", adm_div_2) ~ "Ruvuma",
+              
+                  adm_div_2 == "Ngorongoro" ~ "Arusha", 
+                  adm_div_2 == "Wete" ~ "North Pemba", 
+                  adm_div_2 == "Tandahimba" ~ "Mtwara", 
+                  adm_div_2 == "Babati" ~ "Manyara",
+                  grepl("Baba", adm_div_2) ~ "Manyara", # !!!!
+                  grepl("Nzega", adm_div_2) ~ "Tabora",
+                  adm_div_2 == "Makete" ~ "Njombe",
+                  adm_div_2 == "Mbeya Urban" ~ "Mbeya",
+                  .default = adm_div_1),
+                
+                adm_div_2 = dplyr::case_when(
+                  # adm_div_1  Arusha
+                  adm_div_2 == "Arusha Rural" ~ "Arusha",
+                  # adm_div_1  Shinyanga
+                  adm_div_2 == "Kahama Rural" ~ "Kahama",
+                  adm_div_2 == "Kahama Town" ~ "Kahama Township Authority",
+                  adm_div_2 == "Shinyanga Rural" ~ "Shinyanga",
+                  adm_div_2 == "Nzega Town" ~ "Nzega",
+                  # in 2012 by splitting the Kahama District into Msalala and Ushetu
+                  adm_div_2 == "Msalala" ~ "Kahama",
+                  adm_div_2 == "Ushetu" ~ "Kahama",
+                  # adm_div_1  Katavi
+                  adm_div_2 == "Mpanda Rural" ~ "Mpanda",
+                  # established in 2012 from Mlele
+                  adm_div_2 == "Mpimbwe" ~ "Mlele",
+                  adm_div_2 == "Nsimbo" ~ "Mlele",
+                  # adm_div_1  Singida
+                  adm_div_2 == "Singida Rural" ~ "Singida",
+                  # established in 2015 from Manyoni
+                  adm_div_2 == "Itigi" ~ "Manyoni",
+                  # adm_div_1 Dar es Salaam
+                  # In 2015 Temeke was divided into Temeke and Kigamboni
+                  adm_div_2 == "Kigamboni" ~ "Temeke",
+                  # Kinondoni should be onlyu the eastern part
+                  adm_div_2 == "Ubungo" ~ "Kinondoni",
+                  # adm_div_1 Kagera
+                  adm_div_2 == "Bukoba Rural" ~ "Bukoba",
+                  # adm_div_1 Dodoma
+                  adm_div_2 == "Kondoa Urban" ~ "Kondoa",
+                  # adm_div_1 Mbeya
+                  adm_div_2 == "Mbeya Rural" ~ "Mbeya",
+                  adm_div_2 == "Mbalali" ~ "Mbarali",
+                  # created in 2013, not perfect geo match
+                  adm_div_2 == "Busokelo" ~ "Makete",
+                  # adm_div_1 Morogoro
+                  adm_div_2 == "Ifakara Urban" ~ "Kilombero",
+                  adm_div_2 == "Morogoro Rural" ~ "Morogoro",
+                  # it should be the western part of Ulanga
+                  adm_div_2 == "Malinyi" ~ "Ulanga",
+                  # adm_div_1 Kigoma
+                  adm_div_2 == "Kasulu Rural" ~ "Kasulu",
+                  adm_div_2 == "Kasulu Town" ~ "Kasulu Township Authority",
+                  adm_div_2 == "Kigoma Rural" ~ "Kigoma",
+                  adm_div_2 == "Kigoma Ujiji Urban" ~ "Kigoma  Urban",
+                  # adm_div_1 Mtwara
+                  adm_div_2 == "Masasi Rural" ~ "Masasi",
+                  adm_div_2 == "Masasi Urban" ~ "Masasi  Township Authority",
+                  adm_div_2 == "Mtwara Mikindani" ~ "Mtwara Urban",
+                  adm_div_2 == "Mtwara Rural" ~ "Mtwara",
+                  # adm_div_1 Geita
+                  adm_div_2 == "Geita Town" ~ "Geita",
+                  # adm_div_1 Mwanza
+                  adm_div_2 == "Mwanza Urban" ~ "Nyamagana",
+                  # created in 2015, from the eastern part of Sengerema
+                  adm_div_2 == "Buchosa" ~ "Sengerema",
+                  # adm_div_1 Iringa
+                  adm_div_2 == "Iringa Rural" ~ "Iringa",
+                  adm_div_2 == "Mafinga Town" ~ "Mafinga Township Authority",
+                  # adm_div_1 Njombe
+                  adm_div_2 == "Makambako Town" ~ "Makambako Township Authority",
+                  adm_div_2 == "Mbeya Urban" ~ "Mbeya",
+                  adm_div_2 == "Njombe Rural" ~ "Njombe",
+                  adm_div_2 == "Njombe Town" ~ "Njombe Urban",
+                  # adm_div_1 South Pemba
+                  adm_div_2 == "Chakechake" ~ "Chake Chake",
+                  # adm_div_1 Lindi
+                  adm_div_2 == "Lindi Rural" ~ "Lindi",
+                  # adm_div_1 Manyara
+                  adm_div_2 == "Babati Rural" ~ "Babati",
+                  adm_div_2 == "Babati Town" ~ "Babati UrbanBabati Urban",
+                  adm_div_2 == "Mbulu Town" ~ "Mbulu",
+                  # adm_div_1 Mara
+                  adm_div_2 == "Butiama" ~ "Babati",
+                  adm_div_2 == "Musoma Rural" ~ "Musoma",
+                  # adm_div_1 Ruvuma
+                  adm_div_2 == "Songea Rural" ~ "Songea",
+                  # not clear
+                  adm_div_2 == "Madaba" ~ "Songea",
+                  # adm_div_1 Simiyu
+                  adm_div_2 == "Bariadi Town" ~ "Bariadi",
+                  # adm_div_1 Rukwa
+                  adm_div_2 == "Sumbawanga Rural" ~ "Sumbawanga",
+                  # adm_div_1 Pwani
+                  adm_div_2 == "Kibaha Rural" ~ "Kibaha",
+                  # Should be the eastern part of Rufiji
+                  adm_div_2 == "Kibiti" ~ "Rufiji",
+                  # created in 2016 from northen part of Bagamoyo 
+                  adm_div_2 == "Chalinze" ~ "Bagamoyo",
+                  # adm_div_1 Tanga
+                  adm_div_2 == "Korogwe Rural" ~ "Korogwe",
+                  # Created in 2013 from Lushoto
+                  adm_div_2 == "Bumbuli" ~ "Lushoto",
+                  # adm_div_1 Kilimanjaro
+                  adm_div_2 == "Moshi Rural" ~ "Moshi",
+                  .default = adm_div_2))
+
+# srvy_adm_geo$Uganda19 <- srvy_adm_cntry$Uganda19 |> 
+#   dplyr::mutate(adm_div_1 = stringr::str_to_title(region_name),
+#                 adm_div_2 = stringr::str_to_title(district),
+#                 adm_div_1 = dplyr::case_when(
+#                   adm_div_1 == "Northern" ~ "Northern Region",
+#                   adm_div_1 == "Eastern" ~ "Eastern Region",
+#                   adm_div_1 == "Central" ~ "Central Region",
+#                   adm_div_1 == "Western" ~ "Western Region",
+#                   .default = adm_div_1),
+#                 adm_div_2 = dplyr::case_when(
+#                   # adm_div_1  Northern Region
+#                   adm_div_2 == "Abim" ~ "Labwor",
+#                   adm_div_2 == "Adjumani" ~ "East Moyo",
+#                   adm_div_2 == "Alebtong" ~ "Moroto", #!!!!
+#                   adm_div_2 == "Amolatar" ~ "Kioga",
+#                   adm_div_2 == "Amudat" ~ "Pokot",
+#                   adm_div_2 == "Amuru" ~ "Kilak",
+#                   adm_div_2 == "Apac" ~ "Maruzi",
+#                   # poly is split into 4, should be one big Arua district
+#                   adm_div_2 == "Arua" ~ "Ayivu",
+#                   # poly is split into 2, Aswa and Omoro
+#                   adm_div_2 == "Gulu" ~ "Aswa",
+#                   adm_div_2 == "Kaabong" ~ "Dodoth",
+#                   adm_div_2 == "Kitgum" ~ "Chua",
+#                   adm_div_2 == "Kotido" ~ "Jie",
+#                   adm_div_2 == "Lira" ~ "Erute",
+#                   # poly is split into 2, West Mojo and Obongi
+#                   adm_div_2 == "Moyo" ~ "West Moyo",
+#                   adm_div_2 == "Nabilatuk" ~ "Pian",
+#                   adm_div_2 == "Nakapiripirit" ~ "Chekwii",
+#                   adm_div_2 == "Napak" ~ "Bokora",
+#                   # poly is split into 2, Jonam and Padyere
+#                   adm_div_2 == "Nebbi" ~ "Padyere",
+#                   adm_div_2 == "Pakwach" ~ "Jonam",
+#                   adm_div_2 == "Pader" ~ "Aruu",
+#                   adm_div_2 == "Pakwach" ~ "Jonam",
+#                   adm_div_2 == "Yumbe" ~ "Aringa",
+#                   adm_div_2 == "Zombo" ~ "Okoro",
+#                   # adm_div_1  Eastern Region
+#                   adm_div_2 == "Bududa" ~ "Manjiya",
+#                   adm_div_2 == "Bugiri" ~ "Bukooli",
+#                   adm_div_2 == "Busia" ~ "Samia-Bugwe",
+#                   adm_div_2 == "Butaleja" ~ "Bunyole",
+#                   adm_div_2 == "Buyende" ~ "Budiope",
+#                   # poly is split into 2, Kigulu and Bugweri
+#                   adm_div_2 == "Iganga" ~ "Kigulu",
+#                   # poly is split into 2, Kagoma and Butembe
+#                   adm_div_2 == "Jinja" ~ "Kagoma",
+#                   adm_div_2 == "Kaliro" ~ "Bulamogi",
+#                   # poly is split into 2, Bugabula and Buzaaya
+#                   adm_div_2 == "Kamuli" ~ "Bugabula",
+#                   adm_div_2 == "Kapchorwa" ~ "Tingey",
+#                   adm_div_2 == "Kapelebyong" ~ "Soroti",
+#                   adm_div_2 == "Katakwi" ~ "Usuk",
+#                   adm_div_2 == "Manafwa" ~ "Bungokho",
+#                   adm_div_2 == "Mayuge" ~ "Bunya",
+#                   adm_div_2 == "Mbale" ~ "Bungokho",
+#                   adm_div_2 == "Namayingo" ~ "Bukooli",
+#                   adm_div_2 == "Namisindwa" ~ "Bubulo",
+#                   adm_div_2 == "Namtumba" ~ "Busiki",
+#                   adm_div_2 == "Namutumba" ~ "Busiki",
+#                   adm_div_2 == "Palisa" ~ "Pallisa",
+#                   adm_div_2 == "Sironko" ~ "Budadiri",
+#                   # adm_div_1  Central Region
+#                   # poly is split into 2, Busujju and Kyamuswa
+#                   adm_div_2 == "Kalangala" ~ "Busujju",
+#                   # poly is split into 2, Bbaale and Ntenjeru
+#                   adm_div_2 == "Kayunga" ~ "Bbaale",
+#                   adm_div_2 == "Kyankwanzi" ~ "Kiboga",
+#                   adm_div_2 == "Luwero" ~ "Katikamu",
+#                   # poly is larger, combine Lwengo and Masaka
+#                   adm_div_2 == "Lwengo" ~ "Bukuto",
+#                   adm_div_2 == "Masaka" ~ "Bukuto",
+#                   adm_div_2 == "Lyantonde" ~ "Kabula",
+#                   adm_div_2 == "Mpigi" ~ "Mawokota",
+#                   # poly is split into 2, Buwekula and Kassanda
+#                   adm_div_2 == "Mubende" ~ "Buwekula",
+#                   # poly is split into 3, Kakuuto, Kyotera, and Kooki
+#                   adm_div_2 == "Rakai" ~ "Kakuuto",
+#                   # poly is split into 2, Lwemiyaga and Mawogola
+#                   adm_div_2 == "Ssembabule" ~ "Mawogola",
+#                   adm_div_2 == "Wakiso" ~ "Busiro",
+#                   # adm_div_1  Central Region
+#                   adm_div_2 == "Bushenyi" ~ "Igara",
+#                   # poly is split into 2, Buhaguzi and Bugahya 
+#                   adm_div_2 == "Hoima" ~ "Buhaguzi",
+#                   # poly is split into 3, Rubanda, Rukiga, and Ndorwa 
+#                   adm_div_2 == "Kabale" ~ "Ndorwa",
+#                   adm_div_2 == "Kabarole" ~ "Burahya",
+#                   adm_div_2 == "Kagadi" ~ "Buyaga",
+#                   adm_div_2 == "Kakumiro" ~ "Bugangaizi",
+#                   # poly is split into 2, Kibale and Kitagwenda
+#                   adm_div_2 == "Kamwenge" ~ "Kibale",
+#                   adm_div_2 == "Kanungu" ~ "Kinkiizi",
+#                   # poly is split into 2, Busongora and Bukonjo
+#                   adm_div_2 == "Kasese" ~ "Busongora",
+#                   # poly is split into 3, Buyaga, Buyanja, and Bugangaizi 
+#                   adm_div_2 == "Kibaale" ~ "Buyanja",
+#                   adm_div_2 == "Kikuube" ~ "Buhaguzi",
+#                   # poly is split into 2, Nyabushozi and Kazo
+#                   adm_div_2 == "Kiruhura" ~ "Nyabushozi",
+#                   adm_div_2 == "Kisoro" ~ "Kibanda",
+#                   adm_div_2 == "Kiryandongo" ~ "Bufumbira",
+#                   adm_div_2 == "Kyegegwa" ~ "Kyaka",
+#                   adm_div_2 == "Kyenjojo" ~ "Mwenge",
+#                   # poly is split into 2, Bujenje and Buruuli
+#                   adm_div_2 == "Masindi" ~ "Buruuli",
+#                   # poly is split into 3, Ruhaama, Rwampara and Kashari
+#                   adm_div_2 == "Mbarara" ~ "Kashari",
+#                   adm_div_2 == "Mitooma" ~ "Ruhinda",
+#                   # poly is split into 3, Ruhaama, Rwampara and Kashari
+#                   adm_div_2 == "Ntungamo" ~ "Ruhaama",
+#                   adm_div_2 == "Rukingiri" ~ "Bujumbura",
+#                   adm_div_2 == "Rukungiri" ~ "Bujumbura",
+#                   .default = adm_div_2))
+
+```
+
+
+### Crop the spatial variables
+The spatial variables variables we have just load have a global coverage. It might be convenient to reduce the coverage to just the countries we are interested in. We can do this by using the `terra::crop()` function and the administrative divisions.
+
+```{r crop}
+#| label: crop
+
+# pre_cntry <- purrr::map(adm_div, 
+#                         crop_with_buffer,
+#                         raster = pre,
+#                         buffer = 1)
+# 
+# evo_cntry <- purrr::map(adm_div, 
+#                         crop_with_buffer,
+#                         raster = evo,
+#                         buffer = 1)
+```
+
+### Weather Variable Transformation
+The original unit of measure it is in meter (m). However, to ease the interpretation, we change it into millimeters (mm).
+
+We also create the new variable water balance by subtracting to precipitation the all the water that has evaporated. Note the original data on evaporation is already negative in the case of evaporation and positive in the case of condensation, hence we shall sum the two variables.
+
+```{r transformation}
+#| label: transformation
+
+# # From meter to millimeters
+# pre_cntry_mm <- purrr::map(pre_cntry, ~ .x*1000)
+# 
+# # From meter to millimeters
+# evo_cntry_mm <- purrr::map(evo_cntry, ~ .x*1000)
+# 
+# # Create the water balance
+# wb_cntry_mm <- purrr::map2(pre_cntry_mm, evo_cntry_mm, \(x, y) x + y)
+
+```
+
+### Extract
+For the extraction of the weather variables, we use the function `extract_cell_by_poly()`. This doesn't aggregate the values within the polygons but extract all the cell values within the polygon separately. This is useful for us as we want to compute the standardize indicators for each cell and only later aggregate at the polygon level.
+
+```{r extract_weather}
+#| label: extract_weather
+#| output: false
+
+
+adm_div$Mali22 <- terra::rotate(adm_div$Mali22, left = FALSE, split = TRUE)
+adm_div$BurkinaFaso22 <- terra::rotate(adm_div$BurkinaFaso22, left = FALSE, split = TRUE)
+
+pre_adm <- purrr::map(adm_div,
+                      extract_cell_by_poly,
+                      raster = pre)
+evo_adm <- purrr::map(adm_div,
+                      extract_cell_by_poly,
+                      raster = evo)
+
+wb_adm <- purrr::map2(pre_adm,
+                      evo_adm,
+                      compute_water_balance)
+
+```
+
+### Compute SPEI
+We now compute the SPEI with the function `compute_spei()`. These functions requires the water balance and the precipitation time series for each location and the time scale at which the indices are computed.
+
+To compute the SPEI, it is recommended to use at least 30 years of observation to ensure a good estimation of the parameters. More years can strength the estimation but the results can be affected by climate change: if there have been a change in the climate parameters, old observations might be not indicative of the current situation affecting the estimation. There are no clear rule on this, so we leave add the possibility to select the time range of observation with the function `select_by_dates()`. The function requires both or just one between the starting date, `from`, and the end date `to`. If both are provide the the function select between the two dates, if only `from` is provided the function selects all date after, and if only `to` is provided the function selects all date before.
+
+As anticipated the we compute the SPEI for each cell of the raster data. Thus, we have multiple values for each administrative division, one value for each cell that falls within the administrative division. To merge these values into score for the administrative division we average all the cells weighted by the proportion of the cell that fall within the division. We achieve this with the function `agg_to_adm_div()`. This function needs to know which columns carry the values to be aggregated, we tell this to the function using the argument `match_col`. The pattern `"^X[0-9]"`is a regular expression that tells the function to look for each colum that start (`^`) with an `X` followed by any number `[0-9]`.
+
+Looking at the result, we see first is the `ID` column, that we will use to merge back with the survey. The other columns contain the SPEI observations over time specific to each coordinate.
+
+```{r compute_spei}
+#| label: compute_spei
+
+spei6 <- purrr::map2(wb_adm,
+                     names(wb_adm),
+                     compute_spei,
+                     time_scale = 6) |>
+  purrr::map(agg_to_adm_div,
+             match_col = "^X[0-9]")
+
+spei3 <- purrr::map2(wb_adm,
+                     names(wb_adm),
+                     compute_spei,
+                     time_scale = 3) |>
+  purrr::map(agg_to_adm_div,
+             match_col = "^X[0-9]")
+
+spei1 <- purrr::map2(wb_adm,
+                     names(wb_adm),
+                     compute_spei,
+                     time_scale = 1) |>
+  purrr::map(agg_to_adm_div,
+             match_col = "^X[0-9]")
+```
+
+We have computed the standardized indicators for each cells but we need additional information to assign each cells to the administrative divisions. We take advantage of the column `ID_adm_div` to merge the standardized indices with the administrative divisions.
+
+```{r finalize_spei}
+#| label: finalize_spei
+
+spei1_adm <- purrr::map(adm_div, terra::values) |>
+  purrr::map2(spei1, merge_by_common)
+
+spei3_adm <- purrr::map(adm_div, terra::values) |>
+  purrr::map2(spei3, merge_by_common)
+
+spei6_adm <- purrr::map(adm_div, terra::values) |>
+  purrr::map2(spei6, merge_by_common)
+
+
+spei1_adm <- readRDS("spei1_adm.rds")
+spei3_adm <- readRDS("spei3_adm.rds")
+spei6_adm <- readRDS("spei6_adm.rds")
+
+
+# spei_1_eth_mwi <- list(purrr::keep_at(spei1_adm, c("Ethiopia19", "Malawi19")),
+#                        list("2014-01-01", "2013-01-01"),
+#                        list("2022-12-31", "2021-12-31")) |>
+#   purrr::pmap(select_by_dates)
+# spei_3_eth_mwi <- list(purrr::keep_at(spei3_adm, c("Ethiopia19", "Malawi19")),
+#                        list("2014-01-01", "2013-01-01"),
+#                        list("2022-12-31", "2021-12-31")) |>
+#   purrr::pmap(select_by_dates)
+# spei_6_eth_mwi <- list(purrr::keep_at(spei6_adm, c("Ethiopia19", "Malawi19")),
+#                        list("2014-01-01", "2013-01-01"),
+#                        list("2022-12-31", "2021-12-31")) |>
+#   purrr::pmap(select_by_dates)
+
+```
+
+### Merge with Survey
+Now we can merge the SPEI values with the survey. This can be easily accomplished with the function `merge_by_common()`, which autonomously looks for the common column to be used as key for the merge.
+
+Usually, we don't want to associate the weather data that occurred after the interview, as it cannot influence the answer of the interviews. To select just the observation that happened before the date of interview we use the function `select_by_interview()`. This function requires as argument the column that contains the dates of interview and the time interval that defines how back in time we need to select the values from the date of interview.
+
+```{r merge_with_survey}
+#| label: merge_with_survey
+
+srvy_all_geo <- c(srvy_adm_geo, srvy_coord_geo)
+srvy_all_geo <- srvy_all_geo[sort(names(srvy_all_geo))]
+
+spei1_hh <- purrr::map2(srvy_all_geo,
+                        spei1_adm,
+                        merge_by_common)
+# |>
+#     purrr::map(select_by_interview,
+#                interview = interview_date,
+#                interval = "10 year",
+#                wide = FALSE)
+
+spei3_hh <- purrr::map2(srvy_all_geo,
+                        spei3_adm,
+                        merge_by_common) 
+# |>
+#     purrr::map(select_by_interview,
+#                interview = interview_date,
+#                interval = "10 year",
+#                wide = FALSE)
+
+spei6_hh <- purrr::map2(srvy_all_geo,
+                        spei6_adm,
+                        merge_by_common) 
+# |>
+#     purrr::map(select_by_interview,
+#                interview = interview_date,
+#                interval = "10 year",
+#                wide = FALSE)
+
+
+spei_1_eth_mwi_hh <- purrr::map2(purrr::keep_at(srvy_all_geo, c("Ethiopia19", "Malawi19")),
+                                 spei_1_eth_mwi,
+                                 merge_by_common)
+
+spei_3_eth_mwi_hh <- purrr::map2(purrr::keep_at(srvy_all_geo, c("Ethiopia19", "Malawi19")),
+                                 spei_3_eth_mwi,
+                                 merge_by_common)
+
+spei_6_eth_mwi_hh <- purrr::map2(purrr::keep_at(srvy_all_geo, c("Ethiopia19", "Malawi19")),
+                                 spei_6_eth_mwi,
+                                 merge_by_common)
+```
+
+### Save
+
+The final step of the code is to save the result. In this case, we save it as a `dta` file using the `haven::write_dta()` function.
+
+
+```{r write_data}
+#| label: write_data
+#| eval: false
+
+spei6_hh |>
+    dplyr::bind_rows() |>
+    haven::write_dta(file.path(path_to_result, "spei6.dta"))
+spei3_hh |>
+    dplyr::bind_rows() |>
+    haven::write_dta(file.path(path_to_result, "spei3.dta"))
+spei1_hh |>
+    dplyr::bind_rows() |>
+    haven::write_dta(file.path(path_to_result, "spei1.dta"))
+
+
+spei_6_eth_mwi_hh |>
+    dplyr::bind_rows() |>
+    haven::write_dta(file.path(path_to_result, "spei6_eth_mwi.dta"))
+spei_3_eth_mwi_hh |>
+    dplyr::bind_rows() |>
+    haven::write_dta(file.path(path_to_result, "spei3_eth_mwi.dta"))
+spei_1_eth_mwi_hh |>
+    dplyr::bind_rows() |>
+    haven::write_dta(file.path(path_to_result, "spei1_eth_mwi.dta"))
+```
+
+<br><br>
