@@ -27,7 +27,8 @@ get_poly_attr_for_point <- function(point,
                                     poly,
                                     iteraction = NULL,
                                     geom = c("lon", "lat"),
-                                    crs = "epsg:4326") {
+                                    crs = "epsg:4326",
+                                    outside = TRUE) {
     if (!is.null(iteraction)) cat("processing:", iteraction, "\n")
     if (!inherits(point, "SpatVector")) {
         point <- terra::vect(point, geom = geom, crs = crs, keepgeom = TRUE)
@@ -46,12 +47,11 @@ get_poly_attr_for_point <- function(point,
     point_out <- dplyr::anti_join(terra::values(point), attrs_in, by = comm_var)
 
     # For unmatched points, assign nearest polygon attributes
-    if (nrow(point_out) > 0) {
-        cat("Some spatial points are outside the polygon. They will be assigned to the closest polygon.\n")
+    if (nrow(point_out) > 0 & outside) {
+        cat("Some points are outside the polygons. They are assigned to the closest polygon.\n")
         point_out_id <- point_out |>
-            #dplyr::pull(setdiff(comm_var, geom)) # I changed by select as pull only works to select one column from point_out
             dplyr::select(setdiff(comm_var, geom))
-        cat("These are the points:", unlist(point_out_id))
+        cat("The points are:", unlist(point_out_id))
 
         sf_points <- point_out |>
             terra::vect(geom = geom, crs = crs, keepgeom = TRUE) |>
