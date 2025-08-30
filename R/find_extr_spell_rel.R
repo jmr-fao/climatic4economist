@@ -61,7 +61,7 @@ find_extr_spell_rel <- function(spell, threshold) {
     if (!is.null(l_perc_thresh_values)) {
         cat("Finding extreme spells for spell computed below", l_perc_thresh_values, "\n")
     }
-    if (!is.null(l_perc_thresh_values)) {
+    if (!is.null(u_perc_thresh_values)) {
         cat("Finding extreme spells for spell computed above", u_perc_thresh_values, "\n")
     }
     # If there is no match stop execution
