@@ -46,7 +46,7 @@ calc_pct_spell <- function(extr_day, p, min_spell = 2) {
         dplyr::reframe(
             dplyr::across(
                 .cols = dplyr::matches("spell"),
-                .fns = ~quantile_df(.x, p),
+                .fns = ~quantile_df(.x, p, min_spell),
                 .unpack = TRUE)) |>
         dplyr::select(ID, month, dplyr::matches("[0-9]?[0-9]p$")) |>
         dplyr::mutate(dplyr::across(
