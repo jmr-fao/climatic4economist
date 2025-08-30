@@ -33,7 +33,7 @@ find_spell <- function(extr_day, min_spell = 2) {
         dplyr::group_by(ID) |>
         dplyr::arrange(date, .by_group = TRUE) |>
         dplyr::transmute(
-            dplyr::across(.cols = dplyr::matches("^day_abv_\\-?[0-9]{1,2}p?$"),
+            dplyr::across(.cols = dplyr::matches("^day_abv_\\-?[0-9]{1,2}\\.?[0-9]?p?$"),
                           .fns = ~compute_spell(.x, threshold = min_spell))) |>
         dplyr::rename_with(.fn = ~ gsub("^day", "spell", .x)) |>
         dplyr::ungroup() |>
@@ -43,7 +43,7 @@ find_spell <- function(extr_day, min_spell = 2) {
         dplyr::group_by(ID) |>
         dplyr::arrange(date, .by_group = TRUE) |>
         dplyr::transmute(
-            dplyr::across(.cols = dplyr::matches("^day_blw_\\-?[0-9]{1,2}p?$"),
+            dplyr::across(.cols = dplyr::matches("^day_blw_\\-?[0-9]{1,2}\\.?[0-9]?p?$"),
                           .fns = ~compute_spell(.x, threshold = 2))) |>
         dplyr::rename_with(.fn = ~ gsub("^day", "spell", .x)) |>
         dplyr::ungroup() |>
