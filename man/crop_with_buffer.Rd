@@ -29,10 +29,9 @@ by the buffer amount. The raster is then cropped to this expanded extent.
 }
 \examples{
 \dontrun{
-library(terra)
-r <- rast(system.file("ex/elev.tif", package = "terra"))
-v <- vect(system.file("ex/lux.shp", package = "terra"))
+r <- terra::rast(system.file("ex/elev.tif", package = "terra"))
+v <- terra::vect(system.file("ex/lux.shp", package = "terra"))
 cropped <- crop_with_buffer(r, v, buffer = 500)
-plot(cropped)
+terra::plot(cropped)
 }
 }

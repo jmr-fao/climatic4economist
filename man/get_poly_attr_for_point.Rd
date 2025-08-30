@@ -9,7 +9,8 @@ get_poly_attr_for_point(
   poly,
   iteraction = NULL,
   geom = c("lon", "lat"),
-  crs = "epsg:4326"
+  crs = "epsg:4326",
+  outside = TRUE
 )
 }
 \arguments{

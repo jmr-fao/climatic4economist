@@ -31,6 +31,7 @@ to speed up the computation with \link[furrr:future_map]{furrr::future_map}.
 }
 \examples{
 compute_spei(coord, time_scale = 1)
+
 }
 \seealso{
 \link[SPEI:Drought-indices]{SPEI::spei}
