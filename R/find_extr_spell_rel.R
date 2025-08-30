@@ -58,18 +58,21 @@ find_extr_spell_rel <- function(spell, threshold) {
 
     # Print the extreme threshold that matches the computation of the observed spell
     # and of the percentile spell
-    if (length(l_perc_thresh_values) != 0) {
+    if (!is.null(l_perc_thresh_values)) {
         cat("Finding extreme spells for spell computed below", l_perc_thresh_values, "\n")
     }
-    if (length(l_perc_thresh_values) != 0) {
+    if (!is.null(l_perc_thresh_values)) {
         cat("Finding extreme spells for spell computed above", u_perc_thresh_values, "\n")
     }
     # If there is no match stop execution
-    if(length(l_perc_thresh_values) == 0 & length(l_perc_thresh_values) == 0) {
+    if(is.null(l_perc_thresh_values) & is.null(l_perc_thresh_values)) {
         stop(paste0("Error: the spell and the treshold do not match!",
                     "They are computed over different extreme values."))
     }
 
+    spell <- spell |>
+        dplyr::mutate(month = substr(date, 6, 7),
+                      .after = date)
     df_full <- dplyr::full_join(spell, threshold, by = c("ID", "month"))
 
     purrr::map(c(l_perc_thresh_values, u_perc_thresh_values),

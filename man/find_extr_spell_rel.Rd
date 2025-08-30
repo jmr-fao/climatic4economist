@@ -4,16 +4,13 @@
 \alias{find_extr_spell_rel}
 \title{Identify relative extreme spells}
 \usage{
-find_extr_spell_rel(spell, threshold, min_spell = 2)
+find_extr_spell_rel(spell, threshold)
 }
 \arguments{
 \item{spell}{A data frame containing spell duration data with an \code{ID} column.}
 
 \item{threshold}{A data frame containing dry spell percentile thresholds for
 each \code{ID} and \code{month}, typically computed using \code{calc_pct_spell()}.}
-
-\item{dry_treshold}{A numeric value (default = 0.1) defining the
-precipitation threshold below which a day is considered dry.}
 }
 \value{
 A data frame containing:
