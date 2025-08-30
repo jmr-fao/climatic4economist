@@ -3,8 +3,7 @@
 #' This function detects extreme spells by comparing observed spell
 #' duration with predefined percentile-based thresholds.
 #'
-#' @param df A data frame containing precipitation data with an `ID` column and
-#'   daily precipitation values .
+#' @param spell A data frame containing spell duration data with an `ID` column.
 #' @param threshold A data frame containing dry spell percentile thresholds for
 #'   each `ID` and `month`, typically computed using `calc_pct_spell()`.
 #' @param dry_treshold A numeric value (default = 0.1) defining the
