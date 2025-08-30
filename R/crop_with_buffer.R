@@ -19,11 +19,10 @@
 #'
 #' @examples
 #' \dontrun{
-#' library(terra)
-#' r <- rast(system.file("ex/elev.tif", package = "terra"))
-#' v <- vect(system.file("ex/lux.shp", package = "terra"))
+#' r <- terra::rast(system.file("ex/elev.tif", package = "terra"))
+#' v <- terra::vect(system.file("ex/lux.shp", package = "terra"))
 #' cropped <- crop_with_buffer(r, v, buffer = 500)
-#' plot(cropped)
+#' terra::plot(cropped)
 #' }
 crop_with_buffer <- function(raster, vector, buffer = 0, buffer_unit = "native", ...) {
     if (!inherits(raster, "SpatRaster")) stop("raster must be a SpatRaster")
@@ -32,8 +31,8 @@ crop_with_buffer <- function(raster, vector, buffer = 0, buffer_unit = "native",
     # If buffer is in meters and data is lon-lat, project first
     if (buffer_unit == "meters" && is.lonlat(raster)) {
         proj_crs <- get_utm_crs(vector)
-        raster_proj <- project(raster, proj_crs)
-        vector_proj <- project(vector, proj_crs)
+        raster_proj <- terra::project(raster, proj_crs)
+        vector_proj <- terra::project(vector, proj_crs)
     } else { # same unit of measure
         raster_proj <- raster
         vector_proj <- vector
