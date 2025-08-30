@@ -17,10 +17,12 @@
 #'   SPEI observation in wide format, i.e. each column is a different
 #'   observation in time and each row is a unique location.
 #' @export
-#' @import dplyr tidyr furrr
+#'
 #' @seealso [SPEI::spei]
+#'
 #' @examples
 #' compute_spei(coord, time_scale = 1)
+#'
 compute_spei <- function(df, time_scale, iteracation = NULL) {
     if (!is.null(iteracation)) cat("Computing SPEI:", iteracation, "\n")
     df |>
