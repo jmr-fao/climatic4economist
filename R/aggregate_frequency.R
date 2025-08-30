@@ -34,7 +34,7 @@ aggregate_frequency <- function(x,
 
     hour <- terra::time(x)
     if (all(is.na(hour))) {
-        hour <-  gsub("^t2m_valid_time=", "", x = names(x)) |>
+        hour <- gsub("^t2m_valid_time=", "", x = names(x)) |>
             as.numeric() |>
             as.POSIXct(origin = "1970-01-01", tz = "GMT")
     }

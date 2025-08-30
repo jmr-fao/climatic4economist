@@ -17,8 +17,7 @@
 #'
 #' @examples
 #' \dontrun{
-#' library(terra)
-#' v <- vect(system.file("ex/lux.shp", package = "terra"))
+#' v <- terra::vect(system.file("ex/lux.shp", package = "terra"))
 #' utm_crs <- get_utm_crs(v)
 #' print(utm_crs)
 #' }
