@@ -6,8 +6,6 @@
 #' @param spell A data frame containing spell duration data with an `ID` column.
 #' @param threshold A data frame containing dry spell percentile thresholds for
 #'   each `ID` and `month`, typically computed using `calc_pct_spell()`.
-#' @param dry_treshold A numeric value (default = 0.1) defining the
-#'   precipitation threshold below which a day is considered dry.
 #'
 #' @return A data frame containing:
 #' - `ID`: Unique identifier for locations or individuals.
@@ -17,7 +15,7 @@
 #'
 #' @export
 
-find_extr_spell_rel <- function(spell, threshold, min_spell = 2) {
+find_extr_spell_rel <- function(spell, threshold) {
     # Find extreme thresholds used to compute the spell for the percentiles
     u_perc_thresh_values <- threshold |>
         dplyr::select(dplyr::matches("abv")) |>
