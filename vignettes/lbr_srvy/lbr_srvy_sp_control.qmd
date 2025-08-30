@@ -22,27 +22,14 @@ vignette: >
 
 
 ## Intro
-The goal of this tutorial is to guide the user extract raster data to be use as spatial control in micro economic analysis .
+The goal of this tutorial is to guide the user extract raster data to be use as spatial control in micro economic analysis.
 
-## Overview of Steps
 In this guide, we will go through the following steps:
 
 1. Load the data
 2. Prepare the survey coordinate
 3. Extract the spatial observations based on the coordinates
 4. Save the result
-
-## Is this guide for me?
-
-This guide provides a step-by-step approach to extract raster data based on survey locations. The target audience includes economists who may have experience with statistical software (e.g. STATA) but are less familiar with spatial data processing in R.
-
-The document is not meant to be a course on R or on how the functions work. It is just a practice example on how to extract raster data based on coordinate location. This is done by using specific functions that wrap up as many steps as possible to ensure it is easier for the user to follow.
-
-## What do I need before starting?
-
-The following R packages are necessary: `terra`, `tidyverse`, `haven`, `data.table`. To install the above package you can use `install.packages("name_of_package")`, don't forget the `"`. We also need the  package `climate4economist`, which can be installed only locally.
-
-If you are not familiar with R check the [appendix] for understanding some coding style used in this tutorial.
 
 ## Code
 ### Set Up
