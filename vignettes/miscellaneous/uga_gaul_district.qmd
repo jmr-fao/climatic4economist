@@ -1,0 +1,121 @@
+---
+title: "Error in Uganda District"
+author: "Jan Martin Rossi"
+date: today
+---
+
+
+
+## The problem
+One district is missing in GAUL level 2 for Uganda. The missing district is `Bugiri`. The district is added to the `Buikwe` district
+
+
+## Find the culprit
+```{r}
+#| label: read_data
+
+path_to_adm_div2 <- file.path("..", "..","..",  "data", 
+                              "adm_div", "GAUL", "old",
+                              "GAUL-UGA-ADM2.geojson")
+
+uga <- terra::vect(path_to_adm_div2)
+uga
+
+```
+
+```{r}
+#| label: isolate_district
+
+wrong_district <- uga |> 
+    tidyterra::filter(gaul2_name == "Buikwe")
+
+cat("gaul2_name:", wrong_district$gaul2_name, "\n")
+cat("gaul2_code:", wrong_district$gaul2_code, "\n")
+cat("n row:", nrow(wrong_district), "\n")
+```
+
+```{r}
+#| label: plot_district
+
+terra::plot(uga, main = "Uganda districts and wrong district")
+terra::polys(wrong_district, col = "red")
+```
+
+## Solution
+### Disaggregate the multipolygon into polygons
+
+```{r}
+#| label: disagg
+
+wrong_disagg <- wrong_district |> 
+    terra::disagg() |> 
+    tidyterra::mutate(id_disagg = 1:dplyr::n()) 
+
+wrong_disagg
+```
+
+
+```{r}
+#| label: plot_disagg
+
+terra::plot(wrong_disagg, "id_disagg", main = "Disagregated districts")
+terra::text(wrong_disagg, "id_disagg")
+
+```
+
+### Identify Buikwe and Bugiri
+```{r}
+Buikwe <- wrong_disagg |> 
+    tidyterra::filter(id_disagg == 2 | id_disagg == 3) |> 
+    terra::aggregate(by = "gaul2_name") |> 
+    tidyterra::select(-c(agg_n, mean_id_disagg)) |> 
+    tidyterra::rename(gaul0_code = mean_gaul0_code,
+                      gaul1_code = mean_gaul1_code,
+                      gaul2_code = mean_gaul2_code)
+
+Bugiri <- wrong_disagg |> 
+    tidyterra::filter(!(id_disagg == 2 | id_disagg == 3)) |> 
+    terra::aggregate(by = "gaul2_name") |> 
+    tidyterra::select(-c(agg_n, mean_id_disagg)) |> 
+    tidyterra::rename(gaul0_code = mean_gaul0_code,
+                      gaul1_code = mean_gaul1_code,
+                      gaul2_code = mean_gaul2_code) |> 
+    tidyterra::mutate(gaul2_code = 106380,
+                      gaul2_name = "Bugiri")
+
+uga_final <- uga |> 
+    tidyterra::filter(gaul2_name != "Buikwe") |> 
+    tidyterra::bind_spat_rows(Buikwe, Bugiri)
+```
+
+
+
+```{r}
+
+terra::plot(uga_final, main = "Correct Uganda district")
+
+uga_final |> 
+    tidyterra::filter(gaul2_name == "Buikwe") |> 
+    terra::polys(col = "blue")
+
+uga_final |> 
+    tidyterra::filter(gaul2_name == "Bugiri") |> 
+    terra::polys(col = "orange")
+
+```
+
+## Writing the correct district
+```{r}
+#| label: write
+#| eval: false
+
+terra::writeVector(uga_final,
+                   filename = file.path(path_to_data,
+                                        "adm_div", "GAUL", "UGA",
+                                        "GAUL-UGA-ADM2",
+                                        "GAUL-UGA-ADM2.geojson"),
+                   filetype = "GeoJSON",
+                   overwrite = TRUE)
+
+```
+

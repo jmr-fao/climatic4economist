@@ -7,6 +7,10 @@
 #' @param vector A `SpatVector` object used to define the cropping extent.
 #' @param buffer A numeric value specifying the buffer (in map units) to expand the cropping extent.
 #'        Default is 0 (no buffer).
+#' @param iteracation optional character to be print before computation. Usually,
+#'  it is the name of the object on which the function is applied. This is useful
+#'  when the function is used inside an apply family function to keep track of the
+#'  iterations.
 #' @param ... Additional arguments passed to [`terra::crop()`].
 #'
 #' @return A cropped `SpatRaster` object based on the buffered extent of the input vector layer.
@@ -24,7 +28,9 @@
 #' cropped <- crop_with_buffer(r, v, buffer = 500)
 #' terra::plot(cropped)
 #' }
-crop_with_buffer <- function(raster, vector, buffer = 0, buffer_unit = "native", ...) {
+crop_with_buffer <- function(raster, vector, iteracation = NULL,
+                             buffer = 0, buffer_unit = "native", ...) {
+    if (!is.null(iteracation)) cat("Cropping:", iteracation, "\n")
     if (!inherits(raster, "SpatRaster")) stop("raster must be a SpatRaster")
     if (!inherits(vector, "SpatVector")) stop("vector must be a SpatVector")
 

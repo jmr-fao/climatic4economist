@@ -8,6 +8,10 @@
 #' @param coord character. The coordinate reference system in one of the
 #'   following formats: WKT/WKT2, <authority>:<code>, or PROJ-string notation.
 #'   See \link[terra]{crs}.
+#' @param iteracation optional character to be print before computation. Usually,
+#'  it is the name of the object on which the function is applied. This is useful
+#'  when the function is used inside an apply family function to keep track of the
+#'  iterations.
 #' @param ... additional arguments to pass to [terra::extract].
 #'
 #' @returns A  \link[tibble]{tbl_df}, which the extracted values for each
@@ -21,7 +25,8 @@
 #' @examples
 #' georef_coord(survey, crs = "epsg:4326")
 
-extract_by_coord <- function(raster, coord, ...) {
+extract_by_coord <- function(raster, coord, iteracation = NULL, ...) {
+    if (!is.null(iteracation)) cat("Extracting:", iteracation, "\n")
     terra::extract(raster, coord, xy = TRUE, bind = TRUE, ...) |>
         terra::values() |>
         tibble::as_tibble() |>

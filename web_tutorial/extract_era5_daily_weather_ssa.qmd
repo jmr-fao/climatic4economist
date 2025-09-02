@@ -1,0 +1,386 @@
+---
+title: "Extract ERA5 Land temperature in multiple country"
+---
+
+
+## Code
+### Set up
+```{r packages}
+#| label: packages
+#| warning: false
+
+library(climatic4economist)
+```
+
+```{r paths}
+#| label: paths
+
+# path to data folder
+path_to_data <- file.path("..", # <1>
+                          "..", "data") # <2>
+
+# to weather
+path_to_tmp <- file.path(path_to_data, "weather", "ERA5_Land", "SSA",
+                         "daily_max_2m_temperature")
+path_to_pre <- file.path(path_to_data, "weather", "ERA5_Land", "SSA",
+                         "daily_sum_total_precipitation")
+
+# to survey and administrative division
+path_to_survey  <- file.path(path_to_data, "survey", "LSMS_labor_survey",
+                             "labour_forYR_ALL_2July.dta")
+path_to_adm_div <- file.path(path_to_data, "adm_div", "GAUL")
+
+
+# to save intermediate results
+path_to_temp <- file.path(path_to_data, "data_project", "temp")
+```
+1. concatenate the string to make a path
+2. `..` means one folder back
+
+```{r options}
+#| label: options
+
+terra::terraOptions(progress = 1)
+```
+
+#### Survey Data
+We start by reading the surveys data. The survey is stored as `dta` file, so we use the `haven::read_dta()` function to read it. 
+
+We only need the `hhid`, the survey coordinates, and the interview dates. We use `dplyr::select()` to choose these variables. This passage is optional and we bring with us all the variables, but we won't use them.
+
+Then we create/modify some variables with the function `dplyr::mutate()`. We transform the the variable `interview_date` from string into data, and we get the year of the median value of the date of interviews. This passage is important as it allows us to define the most appropriate year to select for the spatial variables.
+
+```{r read_srvy}
+#| label: read_srvy
+
+srvy <- haven::read_dta(path_to_survey) |> # <1>
+    dplyr::filter(survey != "Uganda16") |>  # <2>
+    dplyr::filter(!is.na(lon_mod) & !is.na(lat_mod)) |> # <3>
+    dplyr::distinct(survey, hhid, .keep_all = TRUE) |> # <4>
+    dplyr::select(hhid, survey, lon_mod, lat_mod, date_interview ) |> # <5>
+    dplyr::group_by(survey) |> # <6>
+    dplyr::mutate( # <7>
+        date_interview = lubridate::ymd(date_interview), # <8>
+        survey_year    = median(lubridate::year(date_interview), na.rm = TRUE), # <9>
+        .before = hhid) # <10>
+    
+srvy <- srvy |> 
+    dplyr::group_split() |>  # <11>
+    setNames(unique(srvy$survey)) # <12>
+
+```
+1. read dta type data
+2. filter out the survey of Uganda
+3. filter out observation without coordinates
+4. ensure to take only unique observations (no duplicates)
+5. select relevant variables
+6. group by the data by survey (apply next steps to each survey separately)
+7. add or modify variables
+8. ensure the variable interview_date is a date type
+9. median year of the date of interview
+10. specify where the new variable should be located
+11. split the data into different data sets according to the group (survey)
+12. name each new dataset based on the survey
+
+
+The result is a list, whose elements are selected surveys.
+```{r print_srvy}
+#| label: print_srvy
+
+dplyr::glimpse(srvy)
+```
+
+
+For Uganda, we don't have the coordinates and we must use the administrative divisions for  georeferencing.
+
+```{r read_uga}
+#| label: read_uga
+
+srvy_uga <- haven::read_dta(path_to_survey) |> 
+    dplyr::filter(survey == "Uganda16") |> 
+    dplyr::select(-lon_mod, -lat_mod)
+```
+
+#### Weather data
+Now, we move to load the weather data. This data typically comes in the form of spatial raster data. A raster represents a two-dimensional image as a rectangular matrix or grid of pixels. These are spatial rasters because they are georeferenced, meaning each pixel (or "cell" in GIS terms) represents a square region of geographic space. The value of each cell reflects a measurable property (either qualitative or quantitative) of that region.
+
+To weather data is usually stored as `tif` file or `nc`. We can read both of them them with the function `terra::rast()`.
+
+In this case the weather data is stored in multiple files, each representing one year of observations. Therefore, we start by listing all the files and then read them with `terra::rast()`
+
+```{r read_weather}
+#| label: read_weather
+
+tmp <- list.files(path_to_tmp, # <1> 
+                  full.names = TRUE, # <2>
+                  pattern = "\\.nc$") |>  # <3>
+    terra::rast()
+
+pre <- list.files(path_to_pre,
+                  full.names = TRUE,
+                  pattern = "\\.nc$") |>
+    terra::rast()
+
+```
+1. This function list all files in the given path
+2. full.names ensures that the full directory is prepended to the files
+3. only the file names that matches the pattern are listed.
+
+When we print the raster, we obtain several key details. The dimension tells us how many cells the raster consists of and the number of layers, each layer corresponds to a particular day for which the observations refer to. We also get the spatial resolution, which defines the size of each square region in geographic space, and the coordinate reference system (CRS), i.e. `EPSG:4326`.
+
+```{r print_tmp}
+#| label: print_tmp
+
+tmp
+```
+
+We notice the weird names of the layer and the absence of the date of observation. This is information is there but it is expressed in second passed from 1970-01-01. We need to change it to have it in a more friendly format.
+
+```{r change_layer_name}
+#| label: change_layer_name
+
+names(tmp)[1:10] # <1>
+
+names(tmp) <- seq.Date(as.Date("1980-01-01"),
+                       as.Date("2024-12-31"),
+                       by = "1 day")
+names(pre) <- seq.Date(as.Date("1980-01-01"),
+                       as.Date("2024-12-31"),
+                       by = "1 day")
+names(tmp)[1:10]
+```
+1. shows names of the first 10 layers of the data.
+
+
+#### Administrative division
+As we mentioned before, for the survey of Uganda, we need to rely on the administrative divisions for the georeferencing. Therefore, we need to read a spatial file that contains the borders of the administrative divisions. We can use the function `read_GAUL()` to do so, that extract the borders provided by GAUL for the country selected by the `iso` argument and the administrative level selected with the `lvl` argument.
+
+```{r read_adm_div}
+#| label: read_adm_div
+
+adm_div <- read_GAUL(path_to_adm_div,
+                     iso = c("ETH", "MWI", "TZA", "NER", "NGA", "UGA"),
+                     lvl = 2)
+```
+
+Like this we obtain a `SpatVector` object. Specifically a spatial polygons who represent the administrative boundaries. Note that also the spatial polygons have a crs.
+
+To identify the unique administrative divisions we rely on the variable `ID_adm_div`.
+
+```{r print_adm_div}
+#| label: print_adm_div
+
+adm_div$ETH
+
+```
+
+### Georeference the Surveys
+#### Survey coordinates
+As we've mentioned, the weather data is georeferenced, so we need to ensure the same for the survey data. 
+Since many households share the same coordinates, they are linked to the same location. To reduce computation time, we extract data only for the unique coordinates, rather than for each household. Moreover, we must ensure that we can later associate the correct weather data with the right household, we do this by creating an merging variable called `ID`.
+
+This is handled by the `prepare_coord()` function, which requires the coordinates' variable names as input.
+
+As we had decided to work with split surveys, we need to apply the function to each of them separately. We can easily do it with the auxiliary of `purrr::map()`. This function take as first argument a list, and a second argument the function to apply to each element of the list. If function that is applied requires more arguments we can easily provide them inside `purrr::map()`.
+
+```{r prepare_coord}
+#| label: prepare_coord
+
+srvy_coord <- purrr::map(srvy, # <1>
+                         prepare_coord, # <2>
+                         lon_var = lon_mod, # <3>
+                         lat_var = lat_mod )
+```
+1. the list
+2. the function we want to apply to each item of the list
+3. additional arguments to the function
+
+We can print the result to check the transformation, as the result is store as element of a list, we need to extract one survey from the list. The new column, `ID`, is created by `prepare_coord()` and identifies each unique coordinate. This is used to merge the weather data with the household data.
+
+```{r print_srvy_coord}
+#| label: print_srvy_coord
+
+
+dplyr::glimpse(srvy_coord$Ethiopia19)
+
+```
+
+Once we have the unique coordinates, we are ready to transform them into spatial points using the `georef_coord()` function. When performing this transformation, it's crucial to set the correct CRS, which must match that of the weather data. The CRS is provided as an argument of the function, using the previously saved CRS from the weather data. Also the `georef_coord()` function requires the coordinates' variable names as input.
+
+::: {.callout-important}
+When working with multiple spatial data, you must ensure that they have the same coordinate reference system (CRS). This is important because in this way all the data can "spatially" talk to each other.
+
+Usually, the WGS 84 CRS (EPSG:4326) is the default coordinate references system for coordinates. In this case it  matches the weather coordinate references system.
+:::
+
+```{r georef_coord}
+#| label: georef_coord
+
+srvy_geo <-  purrr::map(srvy_coord,
+                        georef_coord,
+                        geom = c("lon_mod", "lat_mod"),
+                        crs = "EPSG:4326")
+```
+
+Now we have spatial point, whose coordinates match place of interview from the surveys. The result has just one variable `ID` as we only need this fro matching all the other data sets.
+
+```{r print_srvy_geo}
+#| label: print_srvy_geo
+
+srvy_geo$Ethiopia19
+```
+
+::: {.callout-note}
+Pay attention on the reduced number of observation between `srvy_coord` and `srvy_geo`. For the survey of Ethiopia, we move from `r nrow(srvy_coord$Ethiopia19)` rows to `r nrow(srvy_geo$Ethiopia19)`. These are the actual unique locations from the survey.
+:::
+
+```{r print_row_geo}
+#| label: print_row_geo
+
+purrr::map_dbl( # <1>
+    srvy, # <2>
+    nrow) # <3>
+purrr::map_dbl(srvy_geo, nrow)
+
+```
+1. apply a function to each element of a list and return a double type vector.
+2. the list
+3. the function to apply
+
+<br>
+
+#### Survey administrative divisions
+For Uganda, we need to match the name of the administrative divisions in the survey with the ones of the spatial polygons.
+
+We start with administrative divisions level 1 and we ensure they match, then we move to the administrative divisions level 2.
+
+```{r geo_adm_div_1}
+#| label: geo_adm_div_1
+
+cat("Number of mismatch in adm div 1:", 
+    length(setdiff(srvy_uga$UGA_region_name, 
+                   adm_div$UGA$adm_div_1)),
+    "\n\n")
+
+cat("Adm 1 in the survey:",
+    paste0(sort(unique(srvy_uga$UGA_region_name)), collapse = " - "),
+    "\n\n")
+cat("Adm 1 in the spatial polygons:",
+    paste0(sort(unique(adm_div$UGA$adm_div_1)), collapse = " - "),
+    "\n\n")
+
+srvy_uga <- srvy_uga |> 
+    dplyr::mutate(adm_div_1 = gsub(" Region", "", UGA_region_name))
+
+cat("Number of mismatch in adm div 1:", 
+    length(setdiff(srvy_uga$adm_div_1,
+                   adm_div$UGA$adm_div_1)), "\n\n")
+
+```
+
+```{r geo_adm_div_2}
+#| label: geo_adm_div_2
+
+cat("Number of mismatch in adm div 1:", 
+    length(setdiff(srvy_uga$UGA_distric_name, 
+                   adm_div$UGA$adm_div_2)), "\n\n")
+
+srvy_uga <- srvy_uga |> 
+    dplyr::mutate(adm_div_2 = UGA_distric_name)
+
+```
+
+### Crop the spatial variables
+The weather variables we have just load have a large coverage, all the Sub Saharan Africa. It might be convenient to reduce the coverage to just the countries we are interested in. 
+
+We can do this by using the `crop_with_buffer()` function and the administrative divisions. As the name suggest, this function allows to specify a buffer around the vector data to increase the spatial extent and crop a larger portion. 
+
+This is useful as some survey coordinates are at the edge of the administrative borders or, in some rare cases, just outside the borders as consequence of the coordinates modification fro location anonymization. Further, to compute some spatial indicators in one cell we need the surrounding cell values and if we crop exactly at the borders those cell values at the edge won't have the surrounding cells.
+
+The `buffer` argument of the function specifies the increase around the spatial extent. By default, it is in the same unit of measure of the data.
+
+This is not a compulsory step but it reduce the memory burden and allows for more meaningful plotting.
+
+```{r crop}
+#| label: crop
+
+# tmp_tza <- crop_with_buffer(raster = tmp, vector = adm_div$TZA, buffer = 1)
+# tmp_tza <- terra::focal(tmp_tza, w = 3, fun = "mean", na.policy = "only", na.rm = TRUE)
+# 
+# pre_tza <- crop_with_buffer(raster = pre, vector = adm_div$TZA, buffer = 1)
+# pre_tza <- terra::focal(pre_tza, w = 3, fun = "mean", na.policy = "only", na.rm = TRUE)
+```
+
+
+### Extraction
+Next, we extract the spatial data based on the survey coordinates using the `extract_by_coord()` function. This function requires the raster with the spatial data and the georeferenced coordinates as inputs.
+
+
+```{r extraction_coord}
+#| label: extraction_coord
+
+
+tmp_coord <- purrr::map2(srvy_geo,
+                         names(srvy_geo),
+                         extract_by_coord,
+                         raster = tmp)
+
+
+pre_coord <- purrr::map2(srvy_geo,
+                         names(srvy_geo),
+                         extract_by_coord,
+                         raster = pre)
+
+tmp_coord$Uganda16 <- extract_by_poly(tmp, adm_div$UGA, fn_agg = "sum")
+pre_coord$Uganda16 <- extract_by_poly(pre, adm_div$UGA, fn_agg = "sum")
+```
+
+Looking at the result, we see first the `ID` column, that identifies the unique survey coordinates. The second and third column, `x_cell` and `y_cell`, are the coordinates of the cells. The other columns contain the spatial observations, specific to each coordinate. For the weather data we have the time series of observations over time, specific to each coordinate.
+
+
+```{r print_extracted}
+#| label: print_extracted
+
+tmp_coord$Ethiopia19
+```
+
+Again we have a row for each unique location from the survey. However, if we want to know how many different cells there are we can look unique cell coordinates.
+
+```{r cell_coordinate}
+#| label: cell_coordinate
+
+unique_cell <- tmp_coord |>
+  dplyr::distinct(x_cell, y_cell) # <1>
+nrow(unique_cell)
+```
+1. identifies the unique combination of the variables
+
+::: {.callout-note}
+We see that now the number of rows is `r nrow(unique_cell)`, this is the actual different weather observations that we can merge with the survey. We start with `r nrow(srvy)` different household, then we have `r nrow(srvy_geo)` different survey coordinates, and we end up with `r nrow(unique_cell)` different weather observations.
+:::
+
+<br>
+
+```{r extraction_poly}
+#| label: extraction_poly
+
+
+tmp_coord <- extract_by_poly()
+
+
+pre_coord <- purrr::map2(srvy_geo,
+                         names(srvy_geo),
+                         extract_by_coord,
+                         raster = pre)
+```
+### Write
+
+```{r write}
+#| label: write
+
+
+saveRDS(tmp_coord, file = file.path(path_to_temp, "tmp_coord.rds" ))
+saveRDS(pre_coord, file = file.path(path_to_temp, "tmp_coord.rds" ))
+
+```
+
