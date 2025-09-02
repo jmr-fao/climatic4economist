@@ -21,6 +21,7 @@
 *.gz
 *.html
 *.json
+*.txt
 
 # R files
 *.Rhistory
