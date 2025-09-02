@@ -44,7 +44,7 @@ find_spell <- function(extr_day, min_spell = 2) {
         dplyr::arrange(date, .by_group = TRUE) |>
         dplyr::transmute(
             dplyr::across(.cols = dplyr::matches("^day_blw_\\-?[0-9]{1,2}\\.?[0-9]?p?$"),
-                          .fns = ~compute_spell(.x, threshold = 2))) |>
+                          .fns = ~compute_spell(.x, threshold = min_spell))) |>
         dplyr::rename_with(.fn = ~ gsub("^day", "spell", .x)) |>
         dplyr::ungroup() |>
         dplyr::select(-ID)

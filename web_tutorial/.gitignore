@@ -9,7 +9,7 @@
 *.stsem
 *.stswp
 
-# data files
+# == data files ==
 *.pdf
 *.jpg
 *.png
@@ -19,16 +19,27 @@
 *.feather
 *.zip
 *.gz
+*.tar.gz
+*.DS_Store
 *.html
 *.json
 *.txt
 
-# R files
+
+# == R files ==
 *.Rhistory
 *.Rproj.user
+*.Rproj.user/
+*.RData
+*.Rdata
 *.rds
 *.RDS
-# Geo files
+
+# == Quarto file ==
+*.quarto
+*.httr-oauth
+
+# == Geo files ==
 *.nc
 *.tif
 *.gpkg
