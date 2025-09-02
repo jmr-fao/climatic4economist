@@ -1,1 +1,46 @@
-/.quarto/
+# .gitignore file for git projects containing Stata files
+
+# Stata files
+*.dta
+*.gph
+*.log
+*.smcl
+*.stpr
+*.stsem
+*.stswp
+
+# data files
+*.pdf
+*.jpg
+*.png
+*.docx
+*.csv
+*.xlsx
+*.feather
+*.zip
+*.gz
+*.html
+*.json
+
+# R files
+*.Rhistory
+*.Rproj.user
+*.rds
+*.RDS
+# Geo files
+*.nc
+*.tif
+*.gpkg
+*.shp
+*.shx
+*.dbf
+*.prj
+*.sbn
+*.sbx
+*.fbn
+*.fbx
+*.ain
+*.aih
+*.xml
+*.atx
+*.geojson
