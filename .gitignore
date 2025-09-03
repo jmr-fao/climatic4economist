@@ -28,6 +28,7 @@
 
 # == R files ==
 *.Rhistory
+*.Rproj
 *.Rproj.user
 *.Rproj.user/
 *.RData
