@@ -12,6 +12,13 @@ title: "Extract ERA5 Land temperature in multiple country"
 library(climatic4economist)
 ```
 
+```{r options}
+#| label: options
+
+terra::terraOptions(progress = 1)
+```
+
+
 ```{r paths}
 #| label: paths
 
@@ -37,12 +44,8 @@ path_to_temp <- file.path(path_to_data, "data_project", "temp")
 1. concatenate the string to make a path
 2. `..` means one folder back
 
-```{r options}
-#| label: options
 
-terra::terraOptions(progress = 1)
-```
-
+### Read
 #### Survey Data
 We start by reading the surveys data. The survey is stored as `dta` file, so we use the `haven::read_dta()` function to read it. 
 
@@ -93,8 +96,8 @@ dplyr::glimpse(srvy)
 
 For Uganda, we don't have the coordinates and we must use the administrative divisions for  georeferencing.
 
-```{r read_uga}
-#| label: read_uga
+```{r read_srv_uga}
+#| label: read_srv_uga
 
 srvy_uga <- haven::read_dta(path_to_survey) |> 
     dplyr::filter(survey == "Uganda16") |> 
@@ -281,7 +284,7 @@ cat("Number of mismatch in adm div 1:",
 ```{r geo_adm_div_2}
 #| label: geo_adm_div_2
 
-cat("Number of mismatch in adm div 1:", 
+cat("Number of mismatch in adm div 2:", 
     length(setdiff(srvy_uga$UGA_distric_name, 
                    adm_div$UGA$adm_div_2)), "\n\n")
 
@@ -304,7 +307,18 @@ This is not a compulsory step but it reduce the memory burden and allows for mor
 ```{r crop}
 #| label: crop
 
-# tmp_tza <- crop_with_buffer(raster = tmp, vector = adm_div$TZA, buffer = 1)
+# tmp_cntry <- purrr::map2(adm_div,
+#                          names(adm_div),
+#                          crop_with_buffer,
+#                          raster = tmp,
+#                          buffer = 1,
+#                          filename = "tmp_crop.nc",
+#                          overwrite = TRUE)
+# tmp_tza <- crop_with_buffer(raster = tmp,
+#                             vector = adm_div$TZA,
+#                             buffer = 1,
+#                             filename = "tanzania_crop.nc",
+#                             overwrite = TRUE)
 # tmp_tza <- terra::focal(tmp_tza, w = 3, fun = "mean", na.policy = "only", na.rm = TRUE)
 # 
 # pre_tza <- crop_with_buffer(raster = pre, vector = adm_div$TZA, buffer = 1)
@@ -314,7 +328,6 @@ This is not a compulsory step but it reduce the memory burden and allows for mor
 
 ### Extraction
 Next, we extract the spatial data based on the survey coordinates using the `extract_by_coord()` function. This function requires the raster with the spatial data and the georeferenced coordinates as inputs.
-
 
 ```{r extraction_coord}
 #| label: extraction_coord
@@ -330,13 +343,9 @@ pre_coord <- purrr::map2(srvy_geo,
                          names(srvy_geo),
                          extract_by_coord,
                          raster = pre)
-
-tmp_coord$Uganda16 <- extract_by_poly(tmp, adm_div$UGA, fn_agg = "sum")
-pre_coord$Uganda16 <- extract_by_poly(pre, adm_div$UGA, fn_agg = "sum")
 ```
 
 Looking at the result, we see first the `ID` column, that identifies the unique survey coordinates. The second and third column, `x_cell` and `y_cell`, are the coordinates of the cells. The other columns contain the spatial observations, specific to each coordinate. For the weather data we have the time series of observations over time, specific to each coordinate.
-
 
 ```{r print_extracted}
 #| label: print_extracted
@@ -364,23 +373,43 @@ We see that now the number of rows is `r nrow(unique_cell)`, this is the actual 
 ```{r extraction_poly}
 #| label: extraction_poly
 
+tmp_coord$Uganda16 <- extract_by_poly(tmp, adm_div$UGA, fn_agg = "mean") |> 
+  dplyr::rename(ID = ID_adm_div)
+pre_coord$Uganda16 <- extract_by_poly(pre, adm_div$UGA, fn_agg = "mean") |> 
+  dplyr::rename(ID = ID_adm_div)
 
-tmp_coord <- extract_by_poly()
 
 
-pre_coord <- purrr::map2(srvy_geo,
-                         names(srvy_geo),
-                         extract_by_coord,
-                         raster = pre)
+
 ```
-### Write
 
+### Variable transformation
+```{r transformation}
+#| label: transformation
+
+# From meter to millimeters per day
+pre_coord_mm <- purrr::map(
+  pre_coord,
+  \(x) dplyr::mutate(x, 
+                     dplyr::across(
+                       .cols = dplyr::where(is.numeric),
+                       .fns = ~ .x*1000)))
+
+# From Kelvin to Celsius degree
+tmp_coord_c <- purrr::map(
+  tmp_coord,
+  \(x) dplyr::mutate(x, 
+                     dplyr::across(
+                       .cols = dplyr::where(is.numeric),
+                       .fns = ~ .x - 273.15)))
+```
+
+
+### Write
 ```{r write}
 #| label: write
 
-
-saveRDS(tmp_coord, file = file.path(path_to_temp, "tmp_coord.rds" ))
-saveRDS(pre_coord, file = file.path(path_to_temp, "tmp_coord.rds" ))
-
+saveRDS(tmp_coord_c, file = file.path(path_to_temp, "tmp_coord.rds" ))
+saveRDS(pre_coord_mm, file = file.path(path_to_temp, "pre_coord.rds" ))
 ```
 

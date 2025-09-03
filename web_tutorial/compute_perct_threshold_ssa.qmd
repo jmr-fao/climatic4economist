@@ -1,0 +1,99 @@
+---
+title: "Compute percentile thresholds"
+---
+
+
+## Code
+### Set up
+```{r packages}
+#| label: packages
+#| warning: false
+
+library(climatic4economist)
+```
+
+```{r options}
+#| label: options
+
+terra::terraOptions(progress = 1)
+```
+
+
+```{r paths}
+#| label: paths
+
+# path to data folder
+path_to_data <- file.path("..", # <1>
+                          "..", "data") # <2>
+
+# to survey and administrative division
+path_to_survey  <- file.path(path_to_data, "survey", "LSMS_labor_survey",
+                             "labour_forYR_ALL_2July.dta")
+path_to_adm_div <- file.path(path_to_data, "adm_div", "GAUL")
+
+
+# to save intermediate results
+path_to_temp <- file.path(path_to_data, "data_project", "temp")
+```
+1. concatenate the string to make a path
+2. `..` means one folder back
+
+
+### Read
+```{r}
+
+tmp_coord <- readRDS(file = file.path(path_to_temp, "tmp_coord.rds"))
+pre_coord <- readRDS(file = file.path(path_to_temp, "pre_coord.rds"))
+
+
+pre_coord$Uganda16 <- pre_coord$Uganda16
+```
+
+
+```{r}
+
+tmp_coord <- purrr::map(tmp_coord,
+                        select_by_dates, 
+                        from = "1980-01-01",
+                        to = "2020-12-31")
+pre_coord <- purrr::map(pre_coord,
+                        select_by_dates, 
+                        from = "1980-01-01",
+                        to = "2020-12-31")
+
+```
+
+
+### Compute percentiles
+```{r}
+
+
+pre_coord$Uganda16
+
+pre_perc <- purrr::map2(pre_coord,
+                        names(pre_coord),
+                        calc_pct_day,
+                        p = c(0.90, 0.95, 0.99),
+                        l_thresh = 0.1,
+                        yearly = TRUE)
+
+tmp_perc <- purrr::map2(tmp_coord,
+                        names(tmp_coord),
+                        calc_pct_day,
+                        p = c(0.90, 0.95, 0.99),
+                        yearly = TRUE)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
