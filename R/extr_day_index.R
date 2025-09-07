@@ -50,12 +50,25 @@ extr_day_index <- function(df,
         as.integer()
     period <- gsub("[0-9]| ", "", interval)
 
-    df_lag <- df |>
+    df_date <- df |>
         dplyr::mutate(end_date := clock::date_parse(to_date({{interview}})),
-                      date = clock::date_parse(as.character(date))) |>
-        dplyr::filter(date < end_date) |>
+                      date = clock::date_parse(as.character(date)))
+
+    if (grepl("year", period)) {
+        min_date <- min(df_date$end_date, na.rm = TRUE) |>
+            clock::add_years(-(n_period*n_lags+1))
+    } else if (grepl("month", period)) {
+        min_date <- min(df_date$end_date, na.rm = TRUE) |>
+            clock::add_months(-(n_period*n_lags+1))
+    } else {
+        stop("Error: supported intervals are month or year")
+    }
+
+
+    df_lag <- df_date |>
+        dplyr::filter(date < end_date & date >= min_date) |>
         dplyr::mutate(
-            lag = find_lag(date, end_date, width = n_period, unit = period),
+            lag = find_lag(end_date, date, width = n_period, unit = period),
             .after = date) |>
         dplyr::filter(lag >= 0 & lag <= n_lags)
 

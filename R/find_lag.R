@@ -28,33 +28,26 @@
 #'          width = 6, unit = "months")
 #'
 
-find_lag <- function(start, end, width = 1, unit = "year") {
-    n_unit <- lubridate::interval(start, end) |>
-        lubridate::time_length(unit) |>
-        floor() |>
-        as.integer()
 
-    n_unit%/%width
+find_lag <- function(start, end, width = 1, unit = c("year", "month")) {
+    unit <- match.arg(unit)  # ensures unit is "year" or "month"
+
+    # interval in days
+    if (unit == "year") {
+        interval <- 365.25*width
+    } else {
+        interval <- 30.4375*width
+    }
+
+    as.numeric(start - end) %/% interval
 }
 
-
 # find_lag <- function(start, end, width = 1, unit = "year") {
-#     if (unit == "year") {
-#         start_y <- as.integer(format(start, "%Y"))
-#         end_y   <- as.integer(format(end,   "%Y"))
-#         (end_y - start_y) %/% width
+#     n_unit <- lubridate::interval(start, end) |>
+#         lubridate::time_length(unit) |>
+#         floor() |>
+#         as.integer()
 #
-#     } else if (unit == "month") {
-#         start_y <- as.integer(format(start, "%Y"))
-#         end_y   <- as.integer(format(end,   "%Y"))
-#         start_m <- as.integer(format(start, "%m"))
-#         end_m   <- as.integer(format(end,   "%m"))
-#         ((end_y - start_y) * 12 + (end_m - start_m)) %/% width
-#
-#     } else if (unit == "day") {
-#         as.integer(difftime(end, start, units = "days")) %/% width
-#
-#     } else {
-#         stop("Unsupported unit. Use 'year', 'month', or 'day'.")
-#     }
+#     n_unit%/%width
 # }
+#

@@ -89,7 +89,6 @@ filter_by_interview <- function(df, interview, interval, missing = "drop") {
     n_period <- as.numeric(gsub("[a-zA-Z\\s]", "", interval))
     period <- tolower(gsub("[0-9\\s]", "", interval))
 
-    # Precompute interview date only once
     interview_date <- clock::date_parse(to_date(dplyr::pull(df, {{interview}})))
 
     # Drop missing if requested
@@ -100,7 +99,6 @@ filter_by_interview <- function(df, interview, interval, missing = "drop") {
         interview_date <- interview_date[valid]
     }
 
-    # Parse observation date once
     obs_date <- clock::date_parse(to_date(df$date))
 
     # Calculate start_date vectorized
@@ -112,9 +110,7 @@ filter_by_interview <- function(df, interview, interval, missing = "drop") {
         stop("Unsupported interval unit.")
     }
 
-    # Vectorized filter
     keep <- obs_date >= start_date & obs_date <= interview_date
 
-    # Return filtered data
     df[keep, , drop = FALSE]
 }

@@ -21,6 +21,6 @@
 #' "2023-12-31"
 
 to_date <- function(x) {
-    gsub("_|\\.|/", "-", x) |>
-        gsub("^X", "", x = _)
+    stringi::stri_replace_first_fixed(x, "X", "") |>
+        stringi::stri_replace_all_regex("[_./]", "-")
 }

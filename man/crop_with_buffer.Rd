@@ -4,12 +4,24 @@
 \alias{crop_with_buffer}
 \title{Crop a Raster with a Buffer around a Vector Layer}
 \usage{
-crop_with_buffer(raster, vector, buffer = 0, buffer_unit = "native", ...)
+crop_with_buffer(
+  raster,
+  vector,
+  iteracation = NULL,
+  buffer = 0,
+  buffer_unit = "native",
+  ...
+)
 }
 \arguments{
 \item{raster}{A \code{SpatRaster} object to be cropped.}
 
 \item{vector}{A \code{SpatVector} object used to define the cropping extent.}
+
+\item{iteracation}{optional character to be print before computation. Usually,
+it is the name of the object on which the function is applied. This is useful
+when the function is used inside an apply family function to keep track of the
+iterations.}
 
 \item{buffer}{A numeric value specifying the buffer (in map units) to expand the cropping extent.
 Default is 0 (no buffer).}
