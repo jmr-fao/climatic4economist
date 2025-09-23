@@ -38,25 +38,34 @@ extr_spell_index <- function(df,
     if(missing(interval)) stop("Error: provide a time interval over which the aggregation is computer. E.g. `1 year`")
     if(missing(id)) stop("Error: provide a column name specifying the unique identifier for each unit")
 
-    if (!is.null(iteracation)) cat("calculating extreme day index:", iteracation, "\n")
+    if (!is.null(iteracation)) cat("Computing extreme spell index:", iteracation, "\n")
 
     n_period <- gsub("[a-zA-Z]| ", "", interval) |>
         as.integer()
-    period <- gsub("[0-9]| ", "", interval)
+    period <- gsub("[0-9]| |s$", "", interval)
+
+    # validate period
+    period <- match.arg(tolower(period), c("year", "month", "week", "day"))
+
+    parse_if_needed <- function(x) {
+        if (inherits(x, c("Date", "POSIXt"))) x else clock::date_parse(x)
+    }
 
     df_date <- df |>
-        dplyr::mutate(end_date := clock::date_parse(to_date({{interview}})),
+        dplyr::mutate(end_date := parse_if_needed({{interview}}),
                       date = clock::date_parse(as.character(date)))
 
-    if (grepl("year", period)) {
-        min_date <- min(df_date$end_date, na.rm = TRUE) |>
-            clock::add_years(-(n_period*n_lags+1))
-    } else if (grepl("month", period)) {
-        min_date <- min(df_date$end_date, na.rm = TRUE) |>
-            clock::add_months(-(n_period*n_lags+1))
-    } else {
-        stop("Error: supported intervals are month or year")
-    }
+    # compute min_date shifted back
+    n_shift <- -(n_period * n_lags + 1)
+    min_end <- min(df_date$end_date, na.rm = TRUE)
+
+    min_date <- switch(
+        period,
+        "year"  = clock::add_years(min_end, n_shift),
+        "month" = clock::add_months(min_end, n_shift),
+        "week"  = clock::add_weeks(min_end, n_shift),
+        "day"   = clock::add_days(min_end, n_shift)
+    )
 
     df_lag <- df_date |>
         dplyr::filter(date < end_date & date >= min_date) |>

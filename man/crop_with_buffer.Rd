@@ -47,3 +47,6 @@ cropped <- crop_with_buffer(r, v, buffer = 500)
 terra::plot(cropped)
 }
 }
+\seealso{
+\link[terra:crop]{terra::crop}
+}

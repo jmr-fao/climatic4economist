@@ -29,15 +29,21 @@
 #'
 
 
-find_lag <- function(start, end, width = 1, unit = c("year", "month")) {
-    unit <- match.arg(unit)  # ensures unit is "year" or "month"
+find_lag <- function(start,
+                     end,
+                     width = 1,
+                     unit = c("year", "month", "week", "day")) {
+    unit <- match.arg(unit)  # ensures unit is "year" or "month" or "week" or "day"
 
     # interval in days
-    if (unit == "year") {
-        interval <- 365.25*width
-    } else {
-        interval <- 30.4375*width
-    }
+    interval <- switch(
+        unit,
+        "year"  = 365.25 * width,
+        "month" = 30.4375 * width,
+        "week"  = 7 * width,
+        "day"   = width,
+        stop("Invalid unit")
+    )
 
     as.numeric(start - end) %/% interval
 }

@@ -82,14 +82,18 @@
 #         tidyr::unnest(data_2)
 # }
 filter_by_interview <- function(df, interview, interval, missing = "drop") {
-    if (!grepl("^[0-9]+\\s*([Yy]ear|[Mm]onth)s?$", interval)) {
-        stop("Invalid interval format. Use '# years' or '# months'.")
-    }
+    # if (!grepl("^[0-9]+\\s*([Yy]ear|[Mm]onth)s?$", interval)) {
+    #     stop("Invalid interval format. Use '# years' or '# months'.")
+    # }
 
     n_period <- as.numeric(gsub("[a-zA-Z\\s]", "", interval))
     period <- tolower(gsub("[0-9\\s]", "", interval))
+    # validate period
+    period <- match.arg(tolower(period), c("year", "month", "week", "day"))
+
 
     interview_date <- clock::date_parse(to_date(dplyr::pull(df, {{interview}})))
+    obs_date <- clock::date_parse(to_date(df$date))
 
     # Drop missing if requested
     if (missing == "drop") {
@@ -98,17 +102,14 @@ filter_by_interview <- function(df, interview, interval, missing = "drop") {
         df <- df[valid, , drop = FALSE]
         interview_date <- interview_date[valid]
     }
-
-    obs_date <- clock::date_parse(to_date(df$date))
-
-    # Calculate start_date vectorized
-    start_date <- if (grepl("year", period)) {
-        clock::add_years(interview_date, -n_period, invalid = "previous")
-    } else if (grepl("month", period)) {
-        clock::add_months(interview_date, -n_period, invalid = "previous")
-    } else {
-        stop("Unsupported interval unit.")
-    }
+    # Compute start_date in a vectorized way
+    start_date <- switch(
+        period,
+        "year"  = clock::add_years(interview_date, -n_period, invalid = "previous"),
+        "month" = clock::add_months(interview_date, -n_period, invalid = "previous"),
+        "week"  = clock::add_weeks(interview_date, -n_period, invalid = "previous"),
+        "day"   = clock::add_days(interview_date -n_period)
+    )
 
     keep <- obs_date >= start_date & obs_date <= interview_date
 

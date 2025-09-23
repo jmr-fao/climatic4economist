@@ -40,7 +40,7 @@
 #'                  X2022.06 = c(12, 18, 3))
 #' find_abs_extreme_pr(df, u_thresh = c(10, 20), l_thresh = 0.1)
 
-find_extr_abs_day <- function(df, u_thresh = NULL, l_thresh = NULL, unit = "unit") {
+find_extr_abs_day <- function(df, u_thresh = NULL, l_thresh = NULL, unit = NULL) {
     df_unique <- df |>
         dplyr::select(ID, dplyr::matches("[0-9]{4}.[0-9]{2}")) |>
         dplyr::distinct(ID, .keep_all = TRUE) |>
@@ -54,8 +54,12 @@ find_extr_abs_day <- function(df, u_thresh = NULL, l_thresh = NULL, unit = "unit
     if (!is.null(u_thresh)) {
         day_abv <- purrr::map(u_thresh, is_above, x = df_unique) |>
             dplyr::bind_cols()
-        unit_abv <- purrr::map(u_thresh, above_threshold, x = df_unique) |>
-            dplyr::bind_cols()
+        if (!is.null(unit)) {
+            unit_abv <- purrr::map(u_thresh, above_threshold, x = df_unique) |>
+                dplyr::bind_cols()
+        } else {
+            unit_abv <- NULL
+        }
     } else {
         day_abv <- NULL
         unit_abv <- NULL
@@ -64,17 +68,27 @@ find_extr_abs_day <- function(df, u_thresh = NULL, l_thresh = NULL, unit = "unit
     if (!is.null(l_thresh)) {
         day_blw <- purrr::map(l_thresh, is_below, x = df_unique) |>
             dplyr::bind_cols()
-        unit_blw <- purrr::map(l_thresh, below_threshold, x = df_unique) |>
-            dplyr::bind_cols()
+        if (!is.null(unit)) {
+            unit_blw <- purrr::map(l_thresh, below_threshold, x = df_unique) |>
+                dplyr::bind_cols()
+        } else {
+            unit_blw <- NULL
+        }
     } else {
         day_blw <- NULL
         unit_blw <- NULL
     }
 
-    list(df_unique, day_abv, day_blw, unit_abv, unit_blw) |>
+    output <- list(df_unique, day_abv, day_blw, unit_abv, unit_blw) |>
         purrr::compact() |>
-        dplyr::bind_cols() |>
-       # dplyr::rename({{unit}} := value) |>
-        dplyr::rename_with(~gsub("unit", unit, .x)) |>
-        dplyr::as_tibble()
+        dplyr::bind_cols()
+
+    if (!is.null(unit)) {
+        output |>
+            dplyr::rename_with(~gsub("unit", unit, .x)) |>
+            dplyr::as_tibble()
+    } else {
+        output
+    }
+
 }

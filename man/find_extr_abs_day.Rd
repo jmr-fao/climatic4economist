@@ -4,7 +4,7 @@
 \alias{find_extr_abs_day}
 \title{Identify absolute extreme weather events}
 \usage{
-find_extr_abs_day(df, u_thresh = NULL, l_thresh = NULL, unit = "unit")
+find_extr_abs_day(df, u_thresh = NULL, l_thresh = NULL, unit = NULL)
 }
 \arguments{
 \item{df}{A dataframe containing time-series data with column names

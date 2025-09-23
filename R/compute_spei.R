@@ -24,7 +24,8 @@
 #' compute_spei(coord, time_scale = 1)
 #'
 compute_spei <- function(df, time_scale, iteracation = NULL) {
-    if (!is.null(iteracation)) cat("Computing SPEI:", iteracation, "\n")
+    if (!is.null(iteracation)) {
+        cat("Computing SPEI ", time_scale, ": ", iteracation, "\n", sep = "")}
     df |>
         dplyr::select(
             dplyr::any_of(c("ID", "ID_adm_div", "x_cell", "y_cell", "coverage_fraction")),

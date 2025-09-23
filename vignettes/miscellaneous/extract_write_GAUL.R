@@ -9,6 +9,7 @@ path_to_files <- file.path("..", "..", "data", "adm_div", "GAUL")
 # ==== Read =========================== ----
 ## list countiries                      ----
 cntry <- list.files(path_to_files, pattern = "^[A-Z]{3}$")
+cntry <- "MOZ"
 
 ## global lavel 1                       ----
 global1 <- list.files(path_to_files, pattern = "global", full.names = TRUE) |>
@@ -33,14 +34,17 @@ cntry_adm_div2 <- purrr::map(cntry,
 
 # ==== Write ========================== ----
 ## administrative level 1               ----
-purrr::walk2(cntry, cntry_adm_div1,
+purrr::walk2(list(cntry), cntry_adm_div1,
              function(x, y) {
                  print(x)
                  file_name <- file.path(path_to_files, x,
                                         paste0("GAUL-", x, "-ADM1"),
                                         paste0("GAUL-", x, "-ADM1.geojson"))
 
-                 terra::writeVector(y, filename = file_name, filetype = "geojson", overwrite = TRUE)})
+                 terra::writeVector(y,
+                                    filename = file_name,
+                                    filetype = "geojson",
+                                    overwrite = TRUE)})
 
 ## administrative level 2               ----
 purrr::walk2(cntry, cntry_adm_div2,

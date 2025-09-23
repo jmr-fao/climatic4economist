@@ -4,7 +4,7 @@
 \alias{find_lag}
 \title{Compute the number of time intervals between two dates}
 \usage{
-find_lag(start, end, width = 1, unit = c("year", "month"))
+find_lag(start, end, width = 1, unit = c("year", "month", "week", "day"))
 }
 \arguments{
 \item{start}{A \code{Date} or \code{POSIXt} object representing the start date.}

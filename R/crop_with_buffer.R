@@ -19,6 +19,7 @@
 #' The function computes the bounding box of the input vector and expands it in all directions
 #' by the buffer amount. The raster is then cropped to this expanded extent.
 #'
+#' @seealso [terra::crop]
 #' @export
 #'
 #' @examples

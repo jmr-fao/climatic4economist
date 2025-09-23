@@ -4,11 +4,24 @@
 \alias{extr_spell_index}
 \title{Extract Spell Index Statistics Over a Specified Interval}
 \usage{
-extr_spell_index(df, interview, id, interval, n_lags = 0, extra_col = NULL)
+extr_spell_index(
+  df,
+  iteracation = NULL,
+  interview,
+  id,
+  interval,
+  n_lags = 0,
+  extra_col = NULL
+)
 }
 \arguments{
 \item{df}{A dataframe containing an interview date, event dates, and
 spell-related variables.}
+
+\item{iteracation}{optional character to be print before computation. Usually,
+it is the name of the object on which the function is applied. This is useful
+when the function is used inside an apply family function to keep track of the
+iterations.}
 
 \item{interview}{The column name representing the interview date.}
 
