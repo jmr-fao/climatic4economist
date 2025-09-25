@@ -32,8 +32,6 @@
 crop_with_buffer <- function(raster, vector, iteracation = NULL,
                              buffer = 0, buffer_unit = "native", ...) {
     if (!is.null(iteracation)) cat("Cropping:", iteracation, "\n")
-    if (!inherits(raster, "SpatRaster")) stop("raster must be a SpatRaster")
-    if (!inherits(vector, "SpatVector")) stop("vector must be a SpatVector")
 
     # If buffer is in meters and data is lon-lat, project first
     if (buffer_unit == "meters" && terra::is.lonlat(raster)) {
