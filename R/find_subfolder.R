@@ -29,7 +29,7 @@ find_subfolder <- function(root, target, max_depth = 10, ignore_case = TRUE, fir
         dirs <- list.dirs(current_level, recursive = FALSE, full.names = TRUE)
 
         if (ignore_case) {
-            match <- dirs[stringr::str_detect(dirs, regex(target, ignore_case = TRUE))]
+            match <- dirs[stringr::str_detect(dirs, stringr::regex(target, ignore_case = TRUE))]
         } else {
             match <- dirs[stringr::str_detect(dirs, target)]
         }

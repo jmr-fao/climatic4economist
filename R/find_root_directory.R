@@ -14,7 +14,7 @@
 #' find_root_directory(start = getwd(), root_directories = c("OneDirive", ".git"))
 #' }
 #'
-#' @exportes
+#' @export
 #'
 find_root_directory <- function(start = getwd(),
                                 root_directories,
