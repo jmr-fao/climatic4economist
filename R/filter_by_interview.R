@@ -86,8 +86,8 @@ filter_by_interview <- function(df, interview, interval, missing = "drop") {
     #     stop("Invalid interval format. Use '# years' or '# months'.")
     # }
 
-    n_period <- as.numeric(gsub("[a-zA-Z\\s]", "", interval))
-    period <- tolower(gsub("[0-9\\s]", "", interval))
+    n_period <- as.numeric(gsub("[a-zA-Z]|\\s", "", interval))
+    period <- tolower(gsub("[0-9]|\\s", "", interval))
     # validate period
     period <- match.arg(tolower(period), c("year", "month", "week", "day"))
 
@@ -101,6 +101,7 @@ filter_by_interview <- function(df, interview, interval, missing = "drop") {
         if (any(!valid)) cat("Missing interview are dropped!\n")
         df <- df[valid, , drop = FALSE]
         interview_date <- interview_date[valid]
+        obs_date <- obs_date[valid]
     }
     # Compute start_date in a vectorized way
     start_date <- switch(
@@ -115,3 +116,5 @@ filter_by_interview <- function(df, interview, interval, missing = "drop") {
 
     df[keep, , drop = FALSE]
 }
+
+

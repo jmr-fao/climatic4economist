@@ -6,7 +6,7 @@
 #' specified replacement value.
 #'
 #' @param x A numeric vector.
-#' @param p numeric vector of probabilities with values in [0, 1].
+#' @param p numeric vector of probabilities with values in \[0, 1\].
 #' @param replace A numeric value to return if all elements in `x` are `NA`.
 #'   Defaults to `0`.
 #'

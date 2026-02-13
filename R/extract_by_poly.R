@@ -22,21 +22,12 @@
 #'
 #' extract_by_poly(r, p)
 
-extract_by_poly <- function(raster, poly, fn_agg = mean, categorical = FALSE, na_rm = TRUE) {
-    if (categorical) {
-        ext <- terra::extract(raster, poly, bind = TRUE) |>
-            terra::values() |>
-            dplyr::as_tibble(ext_tbl) |>
-            dplyr::group_by(ID, dplyr::across(-ID)) |>
-            dplyr::summarise(count = dplyr::n(), .groups = "drop")
-
-    } else {
-        terra::extract(raster,
-                       poly,
-                       fun = fn_agg,
-                       bind = TRUE,
-                       na.rm = na_rm) |>
+extract_by_poly <- function(raster, poly, fn_agg = mean, na_rm = TRUE) {
+    terra::extract(raster,
+                   poly,
+                   fun = fn_agg,
+                   bind = TRUE,
+                   na.rm = na_rm) |>
         terra::values() |>
         dplyr::as_tibble()
-    }
 }

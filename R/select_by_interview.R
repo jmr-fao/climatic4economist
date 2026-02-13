@@ -25,21 +25,23 @@
 
 select_by_interview <- function(df, interview, interval, wide = FALSE) {
 
+
+    valid <- !is.na(dplyr::pull(df, end_date_n))
+    if (any(!valid)) cat("Missing interview are dropped!\n")
+    df <- df[valid, , drop = FALSE]
+
     df_long <- df |>
         tidyr::pivot_longer(cols = dplyr::matches("[0-9]{4}"),
                             names_to = "date")
 
     df_filtered <- filter_by_interview(df = df_long,
-                                       interview = {{interview}},
+                                       interview = end_date_n,
                                        interval = interval,
-                                       missing = "drop")
+                                       missing = "skip")
     if (wide) {
         df_filtered |>
             tidyr::pivot_wider(names_from = date,
-                               values_from = value) |>
-            dplyr::rename_with(~gsub("\\-", "_", .x)) |>
-            dplyr::rename_with(.cols = dplyr::matches("[0-9]{4}"),
-                               ~paste0("X", .x))
+                               values_from = value)
     } else {
         df_filtered
     }
