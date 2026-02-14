@@ -96,7 +96,22 @@ calc_par <- function(df, pars, prefix = NULL, suffix = NULL, agg_period = NULL) 
 aggregate_by_year <- function(df_long, id_vars, pars) {
     # find last date
     last_date <- max(df_long$time_label) |>
+        to_date() |>
         lubridate::as_date()
+
+    is_last_day_month <- last_date == lubridate::ceiling_date(last_date, "month") - 1
+    is_december <- lubridate::month(last_date) == 12
+    if (!is_last_day_month | !is_december) {
+
+        msg <- paste0(
+            "The last_date (", last_date, ") is not the last day of a month ",
+            "and/or not in December.\n",
+            "This date is used as the reference anchor to calculate time intervals ",
+            "to avoid bias in the summary aggregation by year."
+        )
+
+        warning(msg, call. = FALSE)
+    }
 
     df_long |>
         dplyr::mutate(
@@ -104,11 +119,8 @@ aggregate_by_year <- function(df_long, id_vars, pars) {
             date_clean = lubridate::as_date(time_label),
             # Calculate months from the end
             total_months = lubridate::interval(date_clean, last_date) %/% months(1),
-
-            # Divide into 12-month blocks (0, 1, 2...)
-            # We use pmin(..., 1) to ensure anything older than 23 months
-            # (like that 1st day) stays in the 'oldest' year group (index 1).
-            time_group = pmin(total_months %/% 12, 1)) |>
+            # 12-month rolling bins
+            time_group = total_months %/% 12) |>
         dplyr::group_by(dplyr::pick(dplyr::any_of(id_vars)), time_group) |>
         dplyr::summarise(dplyr::across(value, pars, .names = "{fn}"),
                          .groups = "drop") |>
@@ -119,15 +131,24 @@ aggregate_by_year <- function(df_long, id_vars, pars) {
 }
 aggregate_by_month <- function(df_long, id_vars, pars) {
     # find last date
-    last_date <- max(df_long$time_label)
-    last_day <- lubridate::day(last_date)
+    last_date <- max(df_long$time_label)|>
+        to_date() |>
+        lubridate::as_date()
 
+    is_last_day_month <- last_date == lubridate::ceiling_date(last_date, "month") - 1
+    if (!is_last_day_month) {
+
+        msg <- paste0(
+            "The last_date (", last_date, ") is not the last day of a montn.\n",
+            "This date is used as the reference anchor to calculate time intervals ",
+            "to avoid bias in the summary aggregation by month."
+        )
+
+        warning(msg, call. = FALSE)
+    }
     # compute parameter
     df_long |>
-        dplyr::mutate(time_label = to_date(time_label),
-                      time_label = lubridate::as_date(time_label),
-                      shifted_date = time_label - lubridate::days(start_day - 1),
-                      time_group = format(shifted_date, "%Y-%m"))|>
+        dplyr::mutate(time_group = lubridate::interval(date_clean, last_date) %/% months(1)) |>
         # intermediate aggregation
         dplyr::group_by(dplyr::pick(dplyr::any_of(id_vars)), time_group) |>
         dplyr::summarise(n_days = dplyr::n(),
