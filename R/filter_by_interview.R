@@ -103,16 +103,17 @@ filter_by_interview <- function(df, interview, interval, missing = "drop") {
         interview_date <- interview_date[valid]
         obs_date <- obs_date[valid]
     }
+
     # Compute start_date in a vectorized way
     start_date <- switch(
         period,
-        "year"  = clock::add_years(interview_date, -n_period, invalid = "previous"),
+        "year"  = clock::add_years(interview_date,  -n_period, invalid = "previous"),
         "month" = clock::add_months(interview_date, -n_period, invalid = "previous"),
-        "week"  = clock::add_weeks(interview_date, -n_period, invalid = "previous"),
-        "day"   = clock::add_days(interview_date -n_period)
+        "week"  = clock::add_weeks(interview_date,  -n_period, invalid = "previous"),
+        "day"   = clock::add_days(interview_date    -n_period)
     )
 
-    keep <- obs_date >= start_date & obs_date <= interview_date
+    keep <- obs_date > start_date & obs_date <= interview_date
 
     df[keep, , drop = FALSE]
 }
