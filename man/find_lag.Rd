@@ -2,9 +2,15 @@
 % Please edit documentation in R/find_lag.R
 \name{find_lag}
 \alias{find_lag}
-\title{Compute the number of time intervals between two dates}
+\title{Compute the number of complete time intervals between two dates}
 \usage{
-find_lag(start, end, width = 1, unit = c("year", "month", "week", "day"))
+find_lag(
+  start,
+  end,
+  width = 1,
+  unit = c("year", "month", "week", "day"),
+  calendar = TRUE
+)
 }
 \arguments{
 \item{start}{A \code{Date} or \code{POSIXt} object representing the start date.}
@@ -15,27 +21,51 @@ find_lag(start, end, width = 1, unit = c("year", "month", "week", "day"))
 to 1.}
 
 \item{unit}{A character string specifying the unit of time to measure
-(\code{"year"}, \code{"month"}, etc.). Defaults to \code{"year"}. Must be a valid unit
-recognized by \link[lubridate:time_length]{lubridate::time_length}.}
+(\code{"year"}, \code{"month"}, \code{"week"}, \code{"day"}). Defaults to \code{"year"}.}
+
+\item{calendar}{Logical; if \code{TRUE}, computes calendar-aware intervals using
+real months and years. If \code{FALSE}, computes fixed-duration intervals
+using average days (365.25 for years, 30.4375 for months). Defaults to
+\code{TRUE}.}
 }
 \value{
-An integer representing the number of complete intervals of the
-specified width between the start and end dates.
+An integer (or numeric vector) representing the number of complete
+intervals of the specified width between the start and end dates.
 }
 \description{
-This function calculates the number of complete time intervals (e.g., years
-or months) between a start and an end date, based on a specified interval
-width.
+This function calculates the number of complete time intervals (e.g., years,
+months, weeks, or days) between a start and an end date. It supports both
+calendar-aware intervals (respecting actual month lengths and leap years)
+and fixed-duration intervals (approximating months and years with average
+lengths in days).
+}
+\details{
+\itemize{
+\item When \code{calendar = TRUE}, the function counts \strong{completed calendar months
+or years}, taking into account variable month lengths and leap years.
+\item When \code{calendar = FALSE}, it uses \strong{average month/year lengths in days}
+to compute fixed-duration intervals.
+\item Weeks and days are always computed as fixed durations.
+}
 }
 \examples{
-# Example: Find the number of full years between two dates
+# Calendar-aware: number of full years between two dates
 find_lag(as.Date("2020-01-01"), as.Date("2025-01-01"))
 
-# Example: Find the number of 6-month intervals
+# Calendar-aware: number of 6-month intervals
 find_lag(as.Date("2020-01-01"), as.Date("2023-01-01"),
-         width = 6, unit = "months")
+         width = 6, unit = "month")
+
+# Fixed-duration: approximate number of months using average 30.4375 days
+find_lag(as.Date("2020-01-01"), as.Date("2023-01-01"),
+         width = 6, unit = "month", calendar = FALSE)
+
+# Calendar-aware: rolling month indices for daily dates
+dates <- seq.Date(as.Date("2023-11-24"), as.Date("2025-11-24"), by = "day")
+reference <- as.Date("2025-11-24")
+find_lag(dates, reference, unit = "month")
 
 }
 \seealso{
-\code{\link[lubridate:time_length]{lubridate::time_length()}} \code{\link[lubridate:interval]{lubridate::interval()}}
+\code{\link[lubridate:interval]{lubridate::interval()}}
 }
