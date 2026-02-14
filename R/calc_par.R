@@ -117,10 +117,12 @@ aggregate_by_year <- function(df_long, id_vars, pars) {
         dplyr::mutate(
             time_label = to_date(time_label),
             date_clean = lubridate::as_date(time_label),
-            # Calculate months from the end
-            total_months = lubridate::interval(date_clean, last_date) %/% months(1),
-            # 12-month rolling bins
-            time_group = total_months %/% 12) |>
+            # # Calculate months from the end
+            # total_months = lubridate::interval(date_clean, last_date) %/% months(1),
+            # # 12-month rolling bins
+            # time_group = total_months %/% 12
+            time_group = find_lag(time_label, last_date, unit = "year")
+            ) |>
         dplyr::group_by(dplyr::pick(dplyr::any_of(id_vars)), time_group) |>
         dplyr::summarise(dplyr::across(value, pars, .names = "{fn}"),
                          .groups = "drop") |>
@@ -148,7 +150,9 @@ aggregate_by_month <- function(df_long, id_vars, pars) {
     }
     # compute parameter
     df_long |>
-        dplyr::mutate(time_group = lubridate::interval(date_clean, last_date) %/% months(1)) |>
+        dplyr::mutate(time_label = to_date(time_label),
+                      time_group = find_lag(time_label, last_date, unit = "month")) |>
+                      #lubridate::interval(date_clean, last_date) %/% months(1)) |>
         # intermediate aggregation
         dplyr::group_by(dplyr::pick(dplyr::any_of(id_vars)), time_group) |>
         dplyr::summarise(n_days = dplyr::n(),
