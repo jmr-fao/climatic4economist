@@ -10,7 +10,7 @@ quantile_na_check(x, p, replace = 0)
 \arguments{
 \item{x}{A numeric vector.}
 
-\item{p}{numeric vector of probabilities with values in \link{0, 1}.}
+\item{p}{numeric vector of probabilities with values in [0, 1].}
 
 \item{replace}{A numeric value to return if all elements in \code{x} are \code{NA}.
 Defaults to \code{0}.}
