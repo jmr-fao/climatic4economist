@@ -74,7 +74,7 @@ select_by_interview <- function(df, interview, interval, wide = FALSE) {
 
     # 4) filter based on interval
     df_filtered <- filter_by_interview(df = df_long,
-                                       interview = {{interview}},
+                                       interview = {{interview_var}},
                                        interval = interval,
                                        missing = "skip")
 
