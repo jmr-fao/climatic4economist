@@ -2,30 +2,63 @@
 % Please edit documentation in R/calc_par.R
 \name{calc_par}
 \alias{calc_par}
-\title{Calculate Aggregated Parameters}
+\title{Calculate Aggregated Parameters with Optional Temporal Aggregation}
 \usage{
-calc_par(df, pars, prefix = NULL)
+calc_par(df, pars, prefix = NULL, suffix = NULL, agg_period = NULL)
 }
 \arguments{
-\item{df}{A data frame containing at least an "ID" column and numeric columns
-with years as names.}
+\item{df}{A data frame containing spatial identifier columns and numeric
+columns representing time-indexed observations. Time columns are expected
+to begin with a four-digit year (e.g. \code{"200101"}, \code{"2001-01-01"}).}
 
-\item{agg_fns}{A function or a named list or a named vector of functions to
-be applied for aggregation.}
+\item{pars}{A function or a named list of functions applied to the values.
+For example, \code{mean} or \code{list(avg = mean, total = sum)}. Function names
+are used to construct output column names.}
+
+\item{prefix}{Optional character string added as a prefix to the resulting
+parameter columns. Defaults to \code{NULL}.}
+
+\item{suffix}{Optional character string added as a suffix to the resulting
+parameter columns. Defaults to \code{NULL}.}
+
+\item{agg_period}{Optional character string specifying an intermediate
+temporal aggregation level. Supported values are \code{"year"} and \code{"month"}.
+If provided, aggregation is performed within each period before averaging
+across periods. Defaults to \code{NULL}.}
 }
 \value{
-A data frame with aggregated statistics for each ID.
+A tibble with one row per spatial unit and columns containing the
+aggregated statistics defined in \code{pars}. Output column names follow
+the pattern:
 }
 \description{
-This function computes summary statistics for each unique ID by applying
-a set of aggregation functions to the selected numeric columns.
+Computes summary statistics for spatial units from time-indexed columns.
+The function reshapes the input data to long format and applies user-defined
+summary functions to the values associated with each spatial identifier.
+}
+\details{
+When \code{agg_period} is specified, the function performs a two-step aggregation:
+values are first aggregated within each temporal period (e.g. year or month)
+using the functions provided in \code{pars}, and the resulting statistics are then
+averaged across periods. If \code{agg_period = NULL}, parameters are computed
+directly across all available observations.
 }
 \examples{
 df <- data.frame(
-  ID = c(1, 1, 2, 2, 3),
-  `2001` = c(10, 15, 20, 25, 30),
-  `2002` = c(5, 10, 15, 20, 25)
+  ID = c(1, 2),
+  `200101` = c(10, 20),
+  `200102` = c(15, 25),
+  `200201` = c(5, 15),
+  `200202` = c(10, 20)
 )
-calc_par(df, list(mean = mean, sum = sum))
 
+# Mean across all observations
+calc_par(df, pars = list(avg = mean))
+
+# Average of yearly totals
+calc_par(
+  df,
+  pars = list(total = sum),
+  agg_period = "year"
+)
 }
