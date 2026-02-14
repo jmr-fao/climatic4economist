@@ -7,28 +7,47 @@
 select_by_interview(df, interview, interval, wide = FALSE)
 }
 \arguments{
-\item{df}{A dataframe containing time-series data.}
+\item{df}{A dataframe containing longitudinal data with date-based columns
+(identified by a 4-digit year pattern).}
 
-\item{interview}{\if{html}{\out{<data-masking>}}. The column indicating the interview date.}
+\item{interview}{<\code{\link[rlang:args_data_masking]{data-masking}}>. Either an
+existing column name containing dates, or a single value (Date or character)
+to be applied to all rows.}
 
-\item{interval}{A string specifying the time range for selection (e.g., \code{"2 years"}, \code{"6 months"}).}
+\item{interval}{A string specifying the time range for selection (e.g.,
+\code{"2 years"}, \code{"6 months"}). Passed to \code{filter_by_interview}.}
 
-\item{wide}{Logical. A logical value indicating whether to return data in
-wide format (default is \code{FALSE}).}
+\item{wide}{Logical. If \code{TRUE}, returns the data in wide format. If \code{FALSE}
+(default), returns long format.}
 }
 \value{
-A dataframe filtered based on the specified time interval, returned
-in either long or wide format.
+A filtered tibble/dataframe. If \code{wide = TRUE}, the columns matching
+the date pattern are restored to the wide headers.
 }
 \description{
 This function filters a dataframe based on an interview date and a specified
-time interval. It reshapes the data accordingly, either in long or wide
-format.
+time interval. It can accept an existing column name,
+a literal character string, or a Date object for the interview date.
+}
+\details{
+If \code{interview} is not a column name found in \code{df}, the function creates a
+temporary reference column using the value provided. Rows with missing
+interview dates are automatically dropped, and a message is displayed
+indicating the count of dropped rows.
+
+The function identifies data columns to pivot by searching for 4-digit
+years (e.g., "2023", "X2023_01_01") in the column names.
 }
 \examples{
-df <- data.frame(interview_date = c("2023-01-15", "2022-06-20"),
-                 X2022_12_02 = c(100, 200),
-                 X2022_06_21 = c(150, 250))
-
+# Usage with a column name:
+df <- data.frame(
+  id = 1:2,
+  interview_date = as.Date(c("2023-01-15", "2022-06-20")),
+  X2022_12_02 = c(100, 200),
+  X2022_06_21 = c(150, 250)
+)
 select_by_interview(df, interview_date, "1 year")
+
+# Usage with a literal date:
+select_by_interview(df, "2023-01-01", "6 months", wide = TRUE)
 }
