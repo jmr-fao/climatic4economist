@@ -18,6 +18,7 @@
 #'   ignored during aggregation. Default is \code{TRUE}.
 #' @param pkg Optional character string. The package to use: \code{"terra"} or
 #'   \code{"exactextractr"}. If \code{NULL}, a package is chosen based on polygon count.
+#'   Default is \code{"terra"}.
 #'
 #' @return A \code{tibble} with aggregated raster values, one row per polygon.
 #'
@@ -32,7 +33,7 @@
 #'
 #' extract_by_poly(r, p)
 
-extract_by_poly <- function(raster, poly, fn_agg = "mean", na_rm = TRUE, pkg = NULL) {
+extract_by_poly <- function(raster, poly, fn_agg = "mean", na_rm = TRUE, pkg = "terra") {
 
     if (is.null(pkg)) {
         pkg <-  dplyr::if_else(nrow(poly) > 1000, "exactextractr", "terra")
