@@ -26,7 +26,7 @@
 select_by_interview <- function(df, interview, interval, wide = FALSE) {
 
 
-    valid <- !is.na(dplyr::pull(df, end_date_n))
+    valid <- !is.na(dplyr::pull(df, {{interview}}))
     if (any(!valid)) cat("Missing interview are dropped!\n")
     df <- df[valid, , drop = FALSE]
 
