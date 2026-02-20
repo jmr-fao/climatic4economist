@@ -20,6 +20,8 @@
 #'
 #' @seealso [terra::intersect] [terra::perim]
 #'
+#' @export
+#'
 #' @examples
 #' \dontrun{
 #' polygons <- terra::vect("admin.shp")
