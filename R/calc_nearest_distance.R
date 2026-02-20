@@ -34,7 +34,7 @@
 #'
 #' @export
 
-cal_nearest_distance <- function(x, y, return_geometry = FALSE, ...) {
+calc_nearest_distance <- function(x, y, return_geometry = FALSE, ...) {
     # CRS check
     if (!terra::same.crs(x, y)) {
         message("CRS do not match. Reprojecting y to x CRS.")

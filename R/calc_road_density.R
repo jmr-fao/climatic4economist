@@ -34,7 +34,7 @@
 #' result_vect <- cal_road_density(polygons, roads, return_geometry = TRUE)
 #' }
 
-cal_road_density <- function(polygons, roads, poly_id = NULL, return_geometry = FALSE) {
+calc_road_density <- function(polygons, roads, poly_id = NULL, return_geometry = FALSE) {
 
     # check CRS
     if (!terra::same.crs(polygons, roads)) {

@@ -24,7 +24,7 @@
 #' @seealso [terra::distance] [climatic4economist::calc_nearest_distance]
 #'
 #' @export
-cal_distance <- function(x, y, fun_summ = min, fun_args = list(), use_union = TRUE, return_geometry = FALSE, ...) {
+calc_distance <- function(x, y, fun_summ = min, fun_args = list(), use_union = TRUE, return_geometry = FALSE, ...) {
 
     # CRS check
     if (!terra::same.crs(x, y)) {
