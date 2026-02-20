@@ -21,7 +21,7 @@
 #'   plus a `distance` column (in km). If `fun_summ` is NULL, returns a numeric
 #'   distance matrix where rows correspond to features in `x` and columns to features in `y`.
 #'
-#' @seealso [terra::distance] [cal_nearest_distance]
+#' @seealso [terra::distance] [climatic4economist::calc_nearest_distance]
 #'
 #' @export
 cal_distance <- function(x, y, fun_summ = min, fun_args = list(), use_union = TRUE, return_geometry = FALSE, ...) {
