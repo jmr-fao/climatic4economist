@@ -2,7 +2,7 @@
 % Please edit documentation in R/calc_weighted_distance.R
 \name{calc_weighted_distance}
 \alias{calc_weighted_distance}
-\title{Calculate weighted (cost) distance to target features}
+\title{Calculate weighted (least-cost) distance to target features}
 \usage{
 calc_weighted_distance(target, friction, origin_value = -999, ...)
 }
@@ -19,20 +19,11 @@ Default is -999. Must not already exist in the friction raster.}
 \item{...}{additional arguments passed to \link[terra:costDist]{terra::costDist}}
 }
 \value{
-A \code{SpatRaster} containing accumulated cost distance values,
-where each cell represents the least-cost distance to the nearest
-target feature across the friction surface.
-
 A \code{SpatRaster} of accumulated least-cost distances.
 }
 \description{
-Computes accumulated cost distance from target features across a friction
-(cost) surface using \code{terra::costDist}. The target features are first
-rasterized onto the friction raster grid and assigned a sentinel value
-(-999), which is then used as the origin for cost distance calculation.
-}
-\details{
-All spatial objects must share the same CRS.
+Computes accumulated least-cost distance from target features across
+a friction (cost) surface using \code{terra::costDist()}.
 }
 \examples{
 \dontrun{
@@ -51,12 +42,5 @@ plot(dist_raster)
 
 }
 \seealso{
-\code{\link[terra]{costDist}}, \code{\link[terra]{rasterize}}
-
-#' Calculate weighted (least-cost) distance to target features
-
-Computes accumulated least-cost distance from target features across
-a friction (cost) surface using \code{terra::costDist()}.
-
 \code{\link[terra]{costDist}}
 }
