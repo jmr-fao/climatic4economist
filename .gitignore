@@ -9,22 +9,6 @@
 *.stsem
 *.stswp
 
-# == data files ==
-*.pdf
-*.jpg
-*.png
-*.docx
-*.csv
-*.xlsx
-*.feather
-*.zip
-*.gz
-*.tar.gz
-*.DS_Store
-*.html
-*.json
-*.txt
-
 
 # == R files ==
 *.Rhistory
@@ -56,4 +40,3 @@
 *.xml
 *.atx
 *.geojson
-.Rproj.user
