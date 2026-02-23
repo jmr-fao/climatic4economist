@@ -1,13 +1,17 @@
-🌍 climatic4economist
+<p align="center">
+  <img src="figures/Climat4Economist_Symbol_6.png" width="200">
+</p>
 
-Work with climatic data and surveys
+# 🌍 climatic4economist
+
+## Work with climatic data and surveys
 
 This repository contains functions and workflows designed to support extraction of climate data at survey locations, computation of weather extreme indicators, and merging of climatic information with survey data by location and interview date.
 The climatic4economist package simplifies the process of bridging survey data with environmental data — a common need in socio-economic and impact studies where climatic conditions influence human and environmental outcomes.
 The package builds on existing spatial data ecosystems (e.g., terra) and provides utilities that wrap up many steps so users can follow routine workflows with minimal effort.
 
 
-📘 Features
+## 📘 Features
 
 * Extract climatic and other spatial data at survey locations
 * Compute weather extreme indicators
@@ -22,7 +26,7 @@ This approach lets researchers:
 * Integrate climatic context into survey-based research
 
 
-📥 Installation
+## 📥 Installation
 
 Install directly from GitHub:
 
@@ -31,7 +35,7 @@ remotes::install_github("jmr-fao/climatic4economist")
 ```
 
 
-📦 Dependencies
+## 📦 Dependencies
 
 The package builds on the following packages:
 
