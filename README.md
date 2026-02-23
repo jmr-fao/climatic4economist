@@ -38,10 +38,10 @@ The package builds on the following packages:
 * terra — raster and vector spatial operations
 * sf — simple features support
 * data.table — efficient data manipulation
-* tidyverse -  data manipulation
+* tidyverse —  data manipulation
 * checkmate — robust input validation
-* exactextractr - fast and precise raster extraction
-* SPEI - standardized weather indicators
+* exactextractr — fast and precise raster extraction
+* SPEI — standardized weather indicators
 
 
 
