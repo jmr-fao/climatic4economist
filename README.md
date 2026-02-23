@@ -6,6 +6,7 @@ This repository contains functions and workflows designed to support extraction 
 The climatic4economist package simplifies the process of bridging survey data with environmental data — a common need in socio-economic and impact studies where climatic conditions influence human and environmental outcomes.
 The package builds on existing spatial data ecosystems (e.g., terra) and provides utilities that wrap up many steps so users can follow routine workflows with minimal effort.
 
+
 📘 Features
 
 * Extract climatic and other spatial data at survey locations
@@ -20,6 +21,7 @@ This approach lets researchers:
 * Ensure reproducibility across projects
 * Integrate climatic context into survey-based research
 
+
 📥 Installation
 
 Install directly from GitHub:
@@ -28,6 +30,7 @@ Install directly from GitHub:
 remotes::install_github("jmr-fao/climatic4economist")
 ```
 
+
 📦 Dependencies
 
 The package builds on the following packages:
@@ -35,8 +38,12 @@ The package builds on the following packages:
 * terra — raster and vector spatial operations
 * sf — simple features support
 * data.table — efficient data manipulation
-* tidyvers -  data manipulation
+* tidyverse -  data manipulation
 * checkmate — robust input validation
+* exactextractr - fast and precise raster extraction
+* SPEI - standardized weather indicators
+
+
 
 📚 Background
 
