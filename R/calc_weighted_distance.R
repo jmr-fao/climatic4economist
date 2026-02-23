@@ -52,18 +52,14 @@
 #'   Values must be positive numeric costs.
 #' @param origin_value Numeric value used internally to mark origin cells.
 #'   Default is -999. Must not already exist in the friction raster.
-#' @param directions Integer. Number of directions for movement.
-#'   Either 4 (rook) or 8 (queen). Default is 8.
+#' @param ... additional arguments passed to [terra::costDist]
 #'
 #' @return A \code{SpatRaster} of accumulated least-cost distances.
 #'
 #' @seealso \code{\link[terra]{costDist}}
 #' @export
 #'
-calc_weighted_distance <- function(target,
-                                   friction,
-                                   origin_value = -999,
-                                   directions = 8) {
+calc_weighted_distance <- function(target, friction, origin_value = -999, ...) {
 
     # Validate inputs
     checkmate::assert_class(friction, "SpatRaster")
@@ -84,7 +80,6 @@ calc_weighted_distance <- function(target,
                      friction,
                      field = origin_value) |>
         terra::cover(friction) |>
-        terra::costDist(target = origin_value,
-                        directions = directions)
+        terra::costDist(target = origin_value, ...)
 
 }

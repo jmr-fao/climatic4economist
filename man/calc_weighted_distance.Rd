@@ -4,7 +4,7 @@
 \alias{calc_weighted_distance}
 \title{Calculate weighted (cost) distance to target features}
 \usage{
-calc_weighted_distance(target, friction, origin_value = -999, directions = 8)
+calc_weighted_distance(target, friction, origin_value = -999, ...)
 }
 \arguments{
 \item{target}{A \code{SpatVector} representing target locations
@@ -16,8 +16,7 @@ Values must be positive numeric costs.}
 \item{origin_value}{Numeric value used internally to mark origin cells.
 Default is -999. Must not already exist in the friction raster.}
 
-\item{directions}{Integer. Number of directions for movement.
-Either 4 (rook) or 8 (queen). Default is 8.}
+\item{...}{additional arguments passed to \link[terra:costDist]{terra::costDist}}
 }
 \value{
 A \code{SpatRaster} containing accumulated cost distance values,

@@ -47,5 +47,5 @@ x_with_dist <- cal_nearest_distance(
 
 }
 \seealso{
-\link[terra:nearby]{terra::nearest} \link{cal_distance}
+\link[terra:nearby]{terra::nearest} \link{calc_distance}
 }

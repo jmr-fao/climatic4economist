@@ -21,7 +21,7 @@
 #' - If CRS is geographic (lon/lat), consider using `method = "haversine"`.
 #' - For projected CRS (meters), default Euclidean distance is used.
 #'
-#' @seealso [terra::nearest] [cal_distance]
+#' @seealso [terra::nearest] [calc_distance]
 #'
 #' @examples
 #' \dontrun{
