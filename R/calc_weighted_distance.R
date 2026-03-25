@@ -31,7 +31,7 @@
 #' plot(dist_raster)
 #' }
 #'
-calc_weighted_distance <- function(target, friction, origin_value = -999, ...) {
+calc_weighted_distance <- function(target, friction, field = NULL, origin_value = -999, ...) {
 
     # Validate inputs
     checkmate::assert_class(friction, "SpatRaster")
@@ -44,10 +44,16 @@ calc_weighted_distance <- function(target, friction, origin_value = -999, ...) {
                                          "intersects"),
                            .var.name = "spatial overlap")
 
+    if (is.null(field)) {
+        # Use constant value → create temporary field
+        target$tmp_col <- origin_value
+        field <- "tmp_col"
+    }
+
     # Compute cost distance
     terra::rasterize(target,
                      friction,
-                     field = origin_value) |>
+                     field = field) |>
         terra::cover(friction) |>
         terra::costDist(target = origin_value, ...)
 
