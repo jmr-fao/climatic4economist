@@ -58,3 +58,27 @@ calc_weighted_distance <- function(target, friction, field = NULL, origin_value 
         terra::costDist(target = origin_value, ...)
 
 }
+
+calc_weighted_distance <- function(target, friction, origin_value = -999, ...) {
+
+    # Validate inputs
+    checkmate::assert_class(friction, "SpatRaster")
+    checkmate::assert_class(target, "SpatVector")
+    checkmate::assert_number(origin_value)
+    checkmate::assert_true(terra::same.crs(target, friction),
+                           .var.name = "CRS compatibility")
+    checkmate::assert_true(terra::relate(terra::ext(target),
+                                         terra::ext(friction),
+                                         "intersects"),
+                           .var.name = "spatial overlap")
+
+    # ensure filed names work
+    target$.__tmp_col__ <- origin_value
+
+    terra::rasterize(target,
+                     friction,
+                     field = ".__tmp_col__") |>
+        terra::cover(friction) |>
+        terra::costDist(target = origin_value, ...)
+
+}
