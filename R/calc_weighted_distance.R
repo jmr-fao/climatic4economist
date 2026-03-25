@@ -30,34 +30,6 @@
 #' dist_raster <- cal_weighted_distance(pts, r)
 #' plot(dist_raster)
 #' }
-#'
-calc_weighted_distance <- function(target, friction, field = NULL, origin_value = -999, ...) {
-
-    # Validate inputs
-    checkmate::assert_class(friction, "SpatRaster")
-    checkmate::assert_class(target, "SpatVector")
-    checkmate::assert_number(origin_value)
-    checkmate::assert_true(terra::same.crs(target, friction),
-                           .var.name = "CRS compatibility")
-    checkmate::assert_true(terra::relate(terra::ext(target),
-                                         terra::ext(friction),
-                                         "intersects"),
-                           .var.name = "spatial overlap")
-
-    if (is.null(field)) {
-        # Use constant value → create temporary field
-        target$tmp_col <- origin_value
-        field <- "tmp_col"
-    }
-
-    # Compute cost distance
-    terra::rasterize(target,
-                     friction,
-                     field = field) |>
-        terra::cover(friction) |>
-        terra::costDist(target = origin_value, ...)
-
-}
 
 calc_weighted_distance <- function(target, friction, origin_value = -999, ...) {
 
