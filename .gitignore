@@ -40,3 +40,4 @@
 *.xml
 *.atx
 *.geojson
+vignettes/.DS_Store

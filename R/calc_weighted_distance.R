@@ -30,7 +30,7 @@
 #' dist_raster <- cal_weighted_distance(pts, r)
 #' plot(dist_raster)
 #' }
-#'
+
 calc_weighted_distance <- function(target, friction, origin_value = -999, ...) {
 
     # Validate inputs
@@ -44,10 +44,12 @@ calc_weighted_distance <- function(target, friction, origin_value = -999, ...) {
                                          "intersects"),
                            .var.name = "spatial overlap")
 
-    # Compute cost distance
+    # ensure filed names work
+    target$.__tmp_col__ <- origin_value
+
     terra::rasterize(target,
                      friction,
-                     field = origin_value) |>
+                     field = ".__tmp_col__") |>
         terra::cover(friction) |>
         terra::costDist(target = origin_value, ...)
 

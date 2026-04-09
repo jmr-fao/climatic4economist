@@ -9,7 +9,7 @@ path_to_files <- file.path("..", "data", "adm_div", "GAUL")
 # ==== Read =========================== ----
 ## list countries                       ----
 cntry <- list.files(path_to_files, pattern = "^[A-Z]{3}$")
-cntry <- c("GHA", "PHL", "KHM", "GTM", "PER")
+cntry <- c("UGA")
 
 ## global lavel 1                       ----
 global1 <- list.files(path_to_files, pattern = "global", full.names = TRUE) |>
@@ -34,7 +34,7 @@ cntry_adm_div2 <- purrr::map(cntry,
 
 # ==== Write ========================== ----
 ## administrative level 1               ----
-purrr::walk2(cntry, cntry_adm_div1,
+purrr::walk2(list(cntry), cntry_adm_div1,
              function(x, y) {
                  print(x)
                  file_name <- file.path(path_to_files, x,
@@ -47,7 +47,7 @@ purrr::walk2(cntry, cntry_adm_div1,
                                     overwrite = TRUE)})
 
 ## administrative level 2               ----
-purrr::walk2(cntry, cntry_adm_div2,
+purrr::walk2(list(cntry), cntry_adm_div2,
             function(x, y) {
                  print(x)
                  file_name <- file.path(path_to_files, x,
