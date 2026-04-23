@@ -128,7 +128,9 @@ aggregate_by_year <- function(df_long, id_vars, pars) {
                          .groups = "drop") |>
         # final aggregation
         dplyr::group_by(dplyr::pick(dplyr::any_of(id_vars))) |>
-        dplyr::summarise(dplyr::across(.cols = -time_group, .fns = mean),
+        dplyr::summarise(dplyr::across(.cols = -time_group,
+                                       .fns = mean,
+                                       na.rm = TRUE),
                          .groups = "drop")
 }
 aggregate_by_month <- function(df_long, id_vars, pars) {
@@ -162,7 +164,8 @@ aggregate_by_month <- function(df_long, id_vars, pars) {
         # final aggregation
         dplyr::group_by(dplyr::pick(dplyr::any_of(id_vars))) |>
         dplyr::summarise(dplyr::across(.cols = -c(time_group, n_days),
-                                       .fns = mean),
+                                       .fns = mean,
+                                       na.rm = TRUE),
                          .groups = "drop")
 }
 
