@@ -60,7 +60,7 @@ extr_day_index <- function(df,
 
     df_date <- df |>
         dplyr::mutate(end_date := parse_if_needed({{interview}}),
-                      date = clock::date_parse(as.character(date)))
+                      date = parse_if_needed(date))
 
     # compute min_date shifted back
     n_shift <- -(n_period * n_lags + 1)
