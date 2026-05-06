@@ -65,8 +65,8 @@ find_lag <- function(start,
             unit,
             "year"  = lubridate::interval(end, start) %/% lubridate::years(width),
             "month" = lubridate::interval(end, start) %/% lubridate::period(width, units = "month"),
-            "week"  = as.numeric(difftime(start - end, units = "weeks")) %/% width,
-            "day"   = as.numeric(difftime(start - end, units = "days")) %/% width
+            "week"  = as.numeric((start - end)/7) %/% width,
+            "day"   = as.numeric(start - end) %/% width
         )
     } else {
         # Fixed-duration intervals (average days)
