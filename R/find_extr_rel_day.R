@@ -135,6 +135,7 @@ find_extr_rel_day <- function(df,
         purrr::keep(is.data.frame) |>
         purrr::reduce(dplyr::full_join, by = c("ID", "date")) |>
         dplyr::select(-month) |>
+        dplyr::mutate(date = clock::date_parse(as.character(date))) |>
         #dplyr::rename({{unit}} := value) |>
         dplyr::rename_with(~gsub("unit", unit, .x)) |>
         dplyr::as_tibble()
