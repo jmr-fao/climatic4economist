@@ -39,7 +39,6 @@ pts <- vect(matrix(c(0.5, 0.5), ncol = 2), crs = crs(r))
 dist_raster <- cal_weighted_distance(pts, r)
 plot(dist_raster)
 }
-
 }
 \seealso{
 \code{\link[terra]{costDist}}

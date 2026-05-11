@@ -41,3 +41,6 @@
 *.atx
 *.geojson
 vignettes/.DS_Store
+.positai
+.DS_Store
+.DS_Store
