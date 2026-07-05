@@ -52,5 +52,5 @@ df <- data.frame(
   day_abv_90p = c(0, 1, 1, 0, 0),
   temp_abv_90p = c(1, 2, 3, 1, 0)
 )
-extr_day_index(df, interview = "2024-02-01", id = ID, interval = "30days", n_lags = 1)
+extr_day_index(df, interview = "2024-02-01", id = ID, interval = "1 year", n_lags = 1)
 }
