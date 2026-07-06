@@ -55,7 +55,11 @@ extr_day_index <- function(df,
 
 
     parse_if_needed <- function(x) {
-        if (inherits(x, c("Date", "POSIXt"))) x else clock::date_parse(x)
+        if (inherits(x, c("Date", "POSIXt"))) {
+            x
+            }
+        else {
+                clock::date_parse(as.character(x))
     }
 
     df_date <- df |>
