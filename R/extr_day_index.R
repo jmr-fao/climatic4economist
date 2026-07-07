@@ -60,6 +60,7 @@ extr_day_index <- function(df,
             }
         else {
                 clock::date_parse(as.character(x))
+        }
     }
 
     df_date <- df |>
