@@ -68,7 +68,7 @@ select_by_interview <- function(df, interview, interval, wide = FALSE) {
     }
 
     # 3) to long format
-    df_long <- df |>
+    df_long <- df_cln |>
         tidyr::pivot_longer(cols = dplyr::matches("[0-9]{4}"),
                             names_to = "date")
 
