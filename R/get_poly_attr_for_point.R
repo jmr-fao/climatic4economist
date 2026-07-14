@@ -56,7 +56,8 @@ get_poly_attr_for_point <- function(point,
         sf_points <- point_out |>
             terra::vect(geom = geom, crs = crs, keepgeom = TRUE) |>
             sf::st_as_sf()
-        sf_polygons <- sf::st_as_sf(poly)
+        sf_polygons <- sf::st_as_sf(poly) |>
+            sf::st_make_valid()
 
         nearest_idx <- sf::st_nearest_feature(sf_points, sf_polygons)
         nearest_attrs <- sf_polygons[nearest_idx, ] |>
