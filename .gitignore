@@ -12,12 +12,14 @@
 
 # == R files ==
 *.Rhistory
-*.Rproj.user
-*.Rproj.user/
+*Rproj.user
+*Rproj.user/
 *.RData
 *.Rdata
 *.rds
 *.RDS
+DS_Store
+
 
 # == Quarto file ==
 *.quarto
@@ -40,11 +42,4 @@
 *.xml
 *.atx
 *.geojson
-vignettes/.DS_Store
-.positai
-.DS_Store
-.DS_Store
-.DS_Store
-.DS_Store
-.DS_Store
-.Rproj.user
+
