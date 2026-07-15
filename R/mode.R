@@ -52,7 +52,7 @@ mode <- function(x, ties = c("first", "all", "NA", "error")) {
         ties,
         first = modes[[1L]],
         all = modes,
-        NA = x[NA_integer_],
+        "NA" = x[NA_integer_],
         error = {
             if (length(modes) > 1L)
                 stop("Multiple modes found.", call. = FALSE)
