@@ -44,3 +44,4 @@ DS_Store
 *.geojson
 
 .Rproj.user
+vignettes/.DS_Store
