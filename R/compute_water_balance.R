@@ -19,8 +19,9 @@ compute_water_balance <- function(pre, pet) {
     id_vars <- grep("ID|x_cell|y_cell|coverage|adm_div", names(pre))
     date_vars <- grep("[0-9]{4}", names(pre))
 
-    water_balance <- pre[, date_vars] + pet[, date_vars]
-    cbind(pre[, id_vars], water_balance)
+    # drop = FALSE keeps the date column names when there is a single period
+    water_balance <- pre[, date_vars, drop = FALSE] + pet[, date_vars, drop = FALSE]
+    cbind(pre[, id_vars, drop = FALSE], water_balance)
 }
 
 

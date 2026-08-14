@@ -27,7 +27,8 @@
 
 cv <- function(x, na_rm = TRUE) {
     avg <- mean(x, na.rm = na_rm)
-    if (is.nan(avg)) return(NA_real_)
+    # covers NaN (all values dropped) and NA (missing values kept)
+    if (is.na(avg)) return(NA_real_)
     if (avg == 0) return(NA_real_)  # Avoid division by zero
-    sd(x, na.rm = na_rm) / mean(x, na.rm = na_rm)
+    sd(x, na.rm = na_rm) / avg
 }

@@ -58,7 +58,9 @@ filter_by_interview <- function(df, interview, interval, missing = "drop") {
         period,
         "year"  = clock::add_years(interview_date,  -n_period, invalid = "previous"),
         "month" = clock::add_months(interview_date, -n_period, invalid = "previous"),
-        "week"  = clock::add_weeks(interview_date,  -n_period, invalid = "previous"),
+        # `invalid` applies only to calendrical arithmetic, which is the only
+        # kind that can land on a non-existent date
+        "week"  = clock::add_weeks(interview_date,  -n_period),
         "day"   = clock::add_days(interview_date, -n_period)
     )
 
