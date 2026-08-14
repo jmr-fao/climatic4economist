@@ -147,3 +147,65 @@ test_that("filter_by_interview rejects an unknown interval unit", {
         filter_by_interview(df, interview = interview, interval = "1 fortnight")
     )
 })
+
+test_that("an incomplete final month is not counted", {
+    # the calendar months differ by 12, but the span is three days short of a
+    # year: reading the components alone would over-count by one
+    expect_equal(find_lag(as.Date("1997-07-09"), as.Date("1996-07-12"),
+                          unit = "month"), 11)
+    expect_equal(find_lag(as.Date("1997-07-09"), as.Date("1996-07-12"),
+                          unit = "year"), 0)
+    # the same correction has to apply when the span runs backwards
+    expect_equal(find_lag(as.Date("1996-07-12"), as.Date("1997-07-09"),
+                          unit = "month"), -11)
+})
+
+test_that("a month elapses on the matching day of the month", {
+    expect_equal(find_lag(as.Date("2024-03-11"), as.Date("2024-02-12"),
+                          unit = "month"), 0)
+    expect_equal(find_lag(as.Date("2024-03-12"), as.Date("2024-02-12"),
+                          unit = "month"), 1)
+})
+
+test_that("month-end spans roll back rather than overshoot", {
+    # 31 January to 28 February is a whole month, since February has no 31st
+    expect_equal(find_lag(as.Date("2023-02-28"), as.Date("2023-01-31"),
+                          unit = "month"), 1)
+    # 29 February plus twelve months is 28 February, so that is a whole year
+    expect_equal(find_lag(as.Date("2021-02-28"), as.Date("2020-02-29"),
+                          unit = "year"), 1)
+    expect_equal(find_lag(as.Date("2021-02-27"), as.Date("2020-02-29"),
+                          unit = "year"), 0)
+})
+
+test_that("a year counts exactly as twelve months", {
+    set.seed(5)
+    start <- as.Date("1995-01-01") + sample.int(11000, 300, replace = TRUE)
+    end <- as.Date("1995-01-01") + sample.int(11000, 300, replace = TRUE)
+
+    expect_equal(find_lag(start, end, width = 1, unit = "year"),
+                 find_lag(start, end, width = 12, unit = "month"))
+    expect_equal(find_lag(start, end, width = 2, unit = "year"),
+                 find_lag(start, end, width = 24, unit = "month"))
+})
+
+test_that("find_lag is vectorised over either argument", {
+    starts <- as.Date(c("2024-06-01", "2023-06-01", "2022-06-01"))
+    ends <- as.Date(c("2024-01-01", "2023-01-01", "2022-01-01"))
+
+    expect_equal(find_lag(starts, as.Date("2024-01-01"), unit = "month"),
+                 c(5, -7, -19))
+    expect_equal(find_lag(as.Date("2024-06-01"), ends, unit = "month"),
+                 c(5, 17, 29))
+    expect_equal(find_lag(starts, ends, unit = "month"), c(5, 5, 5))
+})
+
+test_that("find_lag propagates NA and preserves empty input", {
+    expect_true(is.na(find_lag(as.Date(NA), as.Date("2020-01-01"),
+                               unit = "month")))
+    expect_equal(find_lag(as.Date(c("2021-01-01", NA)), as.Date("2020-01-01"),
+                          unit = "month"),
+                 c(12, NA))
+    expect_length(find_lag(as.Date(character()), as.Date("2020-01-01"),
+                           unit = "month"), 0)
+})

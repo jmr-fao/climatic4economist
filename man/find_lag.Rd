@@ -41,10 +41,10 @@ lengths in days).
 }
 \details{
 \itemize{
-\item When \code{calendar = TRUE}, the interval is divided by a
-\code{\link[lubridate:period]{lubridate::period()}}, which is calendar-aware: it counts \strong{completed
-calendar months or years}, respecting variable month lengths and leap
-years.
+\item When \code{calendar = TRUE}, the span is measured against the calendar: it
+counts \strong{completed calendar months or years}, respecting variable month
+lengths and leap years. A month elapses when the day of the month comes
+round again, so 31 January to 28 February is one whole month.
 \item When \code{calendar = FALSE}, it is divided by a \code{\link[lubridate:duration]{lubridate::duration()}}, a
 fixed span of seconds. A year is always 365.25 days (\code{dyears()}) and a
 month always 30.4375 days (\code{dmonths()}).
@@ -65,13 +65,10 @@ as wide as the others, since it holds everything within one unit on either
 side. Every lag in a given call is normally the same sign, so this rarely
 arises, but split the calls if it does.
 
-\code{calendar = TRUE} is far more expensive, because dividing by a period has to
-walk the calendar for every element, while dividing by a duration is one
-vectorised arithmetic operation. On a million dates, monthly lags take about
-20 seconds with \code{calendar = TRUE} against roughly 5 milliseconds with
-\code{calendar = FALSE}, and the calendar path also builds an intermediate that is
-twice the size. Use \code{calendar = FALSE} for large panels when approximate
-bins are acceptable.
+\code{calendar = TRUE} costs more than \code{calendar = FALSE}, but not enough to
+choose between them on speed: on a million dates monthly lags take roughly
+0.3 seconds against 0.01 seconds. Pick the mode that matches the bins you
+want, not the one that runs faster.
 }
 \examples{
 # Calendar-aware: number of full years between two dates
@@ -92,5 +89,5 @@ find_lag(dates, reference, unit = "month")
 
 }
 \seealso{
-\code{\link[lubridate:interval]{lubridate::interval()}}
+\code{\link[clock:clock-arithmetic]{clock::add_months()}}, \code{\link[lubridate:duration]{lubridate::duration()}}
 }
