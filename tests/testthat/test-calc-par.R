@@ -79,12 +79,38 @@ test_that("calc_par warns when the last date is not a December month end", {
                    "not the last day of a month")
 })
 
-test_that("month aggregation drops periods with a single observation", {
-    # aggregate_by_month() filters on n_days > 1, so data already at monthly
-    # resolution has nothing left to aggregate within each period
+test_that("month aggregation returns no rows at all for monthly input", {
+    # aggregate_by_month() filters on n_days > 1. Data already at monthly
+    # resolution has exactly one observation per period, so every period is
+    # dropped and the caller silently loses every unit: no error, no warning,
+    # and an empty frame rather than a missing value.
     df <- monthly_df(values = 1)
     out <- calc_par(df, pars = list(total = sum), agg_period = "month")
-    expect_true(all(is.nan(out$total) | is.na(out$total)))
+
+    expect_equal(nrow(out), 0L)
+    expect_true("ID" %in% names(out))
+})
+
+test_that("the n_days > 1 filter turns on whether a partial month has 1 or 2 days", {
+    # A full December alongside a November represented by a single day: the
+    # sliver is dropped and December stands alone.
+    one_day <- c("2023-11-30",
+                 format(seq(as.Date("2023-12-01"), as.Date("2023-12-31"),
+                            by = "day"), "%Y-%m-%d"))
+    df1 <- data.frame(ID = "1")
+    for (d in one_day) df1[[d]] <- 1
+
+    # The same December, but November now has two days: the sliver survives and
+    # is averaged in as though it were a whole month.
+    two_day <- c(format(seq(as.Date("2023-11-29"), as.Date("2023-11-30"),
+                            by = "day"), "%Y-%m-%d"),
+                 format(seq(as.Date("2023-12-01"), as.Date("2023-12-31"),
+                            by = "day"), "%Y-%m-%d"))
+    df2 <- data.frame(ID = "1")
+    for (d in two_day) df2[[d]] <- 1
+
+    expect_equal(calc_par(df1, pars = list(total = sum), agg_period = "month")$total, 31)
+    expect_equal(calc_par(df2, pars = list(total = sum), agg_period = "month")$total, 16.5)
 })
 
 test_that("month aggregation summarises daily data within each month", {
