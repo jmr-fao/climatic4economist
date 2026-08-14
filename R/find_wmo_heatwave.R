@@ -48,6 +48,10 @@ find_wmo_heatwave <- function(df, excess = 5L, min_spell = 2L) {
         data.table::melt(id.vars = "ID",
                          variable.name = "date",
                          value.name = "value")
+
+    # spells depend on row order, so parse the factor labels and sort by date
+    df_long[, date := parse_date_label(date)]
+    data.table::setorder(df_long, ID, date)
     df_long[, month := month_label(date), ]
     df_long[, avg := mean(value), by = .(ID, month)]
     df_long[, diff := (value - avg) >= excess]

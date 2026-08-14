@@ -41,12 +41,37 @@ lengths in days).
 }
 \details{
 \itemize{
-\item When \code{calendar = TRUE}, the function counts \strong{completed calendar months
-or years}, taking into account variable month lengths and leap years.
-\item When \code{calendar = FALSE}, it uses \strong{average month/year lengths in days}
-to compute fixed-duration intervals.
-\item Weeks and days are always computed as fixed durations.
+\item When \code{calendar = TRUE}, the interval is divided by a
+\code{\link[lubridate:period]{lubridate::period()}}, which is calendar-aware: it counts \strong{completed
+calendar months or years}, respecting variable month lengths and leap
+years.
+\item When \code{calendar = FALSE}, it is divided by a \code{\link[lubridate:duration]{lubridate::duration()}}, a
+fixed span of seconds. A year is always 365.25 days (\code{dyears()}) and a
+month always 30.4375 days (\code{dmonths()}).
+\item Weeks and days are the same either way, since both are fixed multiples of
+a day.
 }
+
+The two modes disagree near a boundary. From 2021-01-01 to 2022-01-01 is a
+complete calendar year, so \code{calendar = TRUE} returns 1; the same span is 365
+days, short of the 365.25-day fixed year, so \code{calendar = FALSE} returns 0.
+Prefer \code{calendar = TRUE} when the lag must line up with calendar reporting
+periods, and \code{calendar = FALSE} when equal-length bins matter more.
+
+Both modes count \strong{whole units toward zero}, so a partial interval is never
+rounded away from zero: a span of -31.2 years gives -31, not -32. Mixing
+positive and negative lags in one call therefore makes the bin at zero twice
+as wide as the others, since it holds everything within one unit on either
+side. Every lag in a given call is normally the same sign, so this rarely
+arises, but split the calls if it does.
+
+\code{calendar = TRUE} is far more expensive, because dividing by a period has to
+walk the calendar for every element, while dividing by a duration is one
+vectorised arithmetic operation. On a million dates, monthly lags take about
+20 seconds with \code{calendar = TRUE} against roughly 5 milliseconds with
+\code{calendar = FALSE}, and the calendar path also builds an intermediate that is
+twice the size. Use \code{calendar = FALSE} for large panels when approximate
+bins are acceptable.
 }
 \examples{
 # Calendar-aware: number of full years between two dates

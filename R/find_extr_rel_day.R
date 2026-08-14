@@ -50,8 +50,12 @@ find_extr_rel_day <- function(df,
         data.table::as.data.table() |>
         data.table::melt(id.vars = "ID",
                          variable.name = "date",
-                         value.name = "value") |>
-        data.table::setorder(ID, date)
+                         value.name = "value")
+
+    # melt returns the former column names as a factor ordered by column
+    # position; parse before sorting so rows end up in chronological order
+    df_long[, date := parse_date_label(date)]
+    data.table::setorder(df_long, ID, date)
 
     df_long[, month := month_label(date), ]
 
@@ -115,7 +119,6 @@ find_extr_rel_day <- function(df,
         purrr::keep(is.data.frame) |>
         purrr::reduce(dplyr::full_join, by = c("ID", "date")) |>
         dplyr::select(-month) |>
-        dplyr::mutate(date = clock::date_parse(as.character(date))) |>
         dplyr::rename_with(~gsub("unit", unit, .x)) |>
         dplyr::as_tibble()
 }

@@ -48,8 +48,12 @@ find_extr_abs_day <- function(df, u_thresh = NULL, l_thresh = NULL, unit = NULL)
         data.table::as.data.table() |>
         data.table::melt(id.vars = "ID",
                          variable.name = "date",
-                         value.name = "value") |>
-        data.table::setorder(ID, date)
+                         value.name = "value")
+
+    # melt returns the former column names as a factor ordered by column
+    # position; parse before sorting so rows end up in chronological order
+    df_unique[, date := parse_date_label(date)]
+    data.table::setorder(df_unique, ID, date)
 
     if (!is.null(u_thresh)) {
         day_abv <- purrr::map(u_thresh, is_above, x = df_unique) |>

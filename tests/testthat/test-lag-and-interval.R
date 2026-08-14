@@ -43,6 +43,52 @@ test_that("find_lag is vectorised over the start date", {
                  c(0, -1, -2))
 })
 
+test_that("both modes count whole units toward zero", {
+    # a span of -31.2 years is 31 whole years, not 32
+    start <- as.Date("1992-10-14")
+    end <- as.Date("2024-01-01")
+
+    expect_equal(find_lag(start, end, unit = "year", calendar = TRUE), -31)
+    expect_equal(find_lag(start, end, unit = "year", calendar = FALSE), -31)
+})
+
+test_that("the two modes agree on rounding direction for negative spans", {
+    # calendar = TRUE truncated while calendar = FALSE floored, so the same
+    # data could be binned one unit apart depending only on the mode
+    set.seed(1)
+    start <- as.Date("1990-01-01") + sample.int(12000, 500, replace = TRUE)
+    end <- as.Date("2024-01-01")
+
+    for (unit in c("year", "month")) {
+        cal <- find_lag(start, end, unit = unit, calendar = TRUE)
+        dur <- find_lag(start, end, unit = unit, calendar = FALSE)
+        # they may differ by one where the unit lengths differ, never by more
+        expect_lte(max(abs(cal - dur)), 1)
+        # and never in opposite directions
+        expect_true(all(sign(cal) == sign(dur) | cal == 0 | dur == 0))
+    }
+})
+
+test_that("fixed-duration units keep their documented lengths", {
+    # a duration year is 365.25 days and a duration month 30.4375 days
+    ref <- as.Date("2024-01-01")
+    expect_equal(find_lag(ref + 365, ref, unit = "year", calendar = FALSE), 0)
+    expect_equal(find_lag(ref + 366, ref, unit = "year", calendar = FALSE), 1)
+    expect_equal(find_lag(ref + 30, ref, unit = "month", calendar = FALSE), 0)
+    expect_equal(find_lag(ref + 31, ref, unit = "month", calendar = FALSE), 1)
+})
+
+test_that("weeks and days are identical in both modes", {
+    set.seed(2)
+    start <- as.Date("2020-01-01") + sample.int(2000, 200, replace = TRUE)
+    end <- as.Date("2024-01-01")
+
+    for (unit in c("week", "day")) {
+        expect_equal(find_lag(start, end, unit = unit, calendar = TRUE),
+                     find_lag(start, end, unit = unit, calendar = FALSE))
+    }
+})
+
 # --- filter_by_interview -----------------------------------------------------
 
 test_that("filter_by_interview keeps observations inside the window", {

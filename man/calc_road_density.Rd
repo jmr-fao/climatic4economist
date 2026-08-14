@@ -12,7 +12,7 @@ calc_road_density(polygons, roads, poly_id = NULL, return_geometry = FALSE)
 \item{roads}{A \code{terra::SpatVector} line object representing roads.}
 
 \item{poly_id}{Optional character string specifying the polygon ID column.
-If NULL, the function searches for \code{"ID"} or \code{"ID_Adm_div"}.}
+If NULL, the function searches for \code{"ID"} or \code{"ID_adm_div"}.}
 
 \item{return_geometry}{Logical. If TRUE, returns a \code{SpatVector} with geometries.
 If FALSE (default), returns a tibble with polygon attributes only.}

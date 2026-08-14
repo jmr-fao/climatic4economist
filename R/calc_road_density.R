@@ -6,7 +6,7 @@
 #' @param polygons A `terra::SpatVector` polygon object.
 #' @param roads A `terra::SpatVector` line object representing roads.
 #' @param poly_id Optional character string specifying the polygon ID column.
-#'   If NULL, the function searches for `"ID"` or `"ID_Adm_div"`.
+#'   If NULL, the function searches for `"ID"` or `"ID_adm_div"`.
 #' @param return_geometry Logical. If TRUE, returns a `SpatVector` with geometries.
 #'   If FALSE (default), returns a tibble with polygon attributes only.
 #'
@@ -44,7 +44,7 @@ calc_road_density <- function(polygons, roads, poly_id = NULL, return_geometry =
 
     # find polygon ID
     if (is.null(poly_id)) {
-        found_ids <- grep("^(ID|ID_Adm_div)$", names(polygons), value = TRUE)
+        found_ids <- grep("^(ID|ID_adm_div)$", names(polygons), value = TRUE)
         if (length(found_ids) == 0) stop("No valid ID column found. Provide `poly_id` explicitly.")
         poly_id <- found_ids[1]
     }
