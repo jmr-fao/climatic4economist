@@ -4,22 +4,27 @@
 \alias{find_wmo_heatwave}
 \title{Compute Heat Wave Spells (WMO Definition)}
 \usage{
-find_wmo_heatwave(df, excess = 5L, min_spell = 2L)
+find_wmo_heatwave(df, excess = 5L, min_spell = 2L, id = NULL)
 }
 \arguments{
-\item{df}{A data frame with an \code{ID} column and daily temperature columns
-(in wide format, named with date-like strings, e.g. \code{"2000-01-01"}).}
+\item{df}{A data frame with a unit identifier column and daily temperature
+columns (in wide format, named with date-like strings, e.g.
+\code{"2000-01-01"}).}
 
 \item{excess}{Numeric. The minimum temperature anomaly above the monthly mean
 required to classify a day as "hot". Default is 5.}
 
 \item{min_spell}{Integer. The minimum number of consecutive hot days to qualify
 as a heat wave spell. Default is 2.}
+
+\item{id}{Optional character string naming the column that identifies the
+units. When \code{NULL}, \code{ID} is used, or \code{ID_adm_div} when that is the only
+one present.}
 }
 \value{
 A data frame with columns:
 \itemize{
-\item \code{ID}: identifier for the unit.
+\item the identifier column, carried through under its own name.
 \item \code{date}: the date of observation.
 \item \code{value}: the daily temperature.
 \item \code{spell_wmo}: an integer index identifying consecutive heat wave days (0 if none).

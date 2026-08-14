@@ -10,11 +10,13 @@ calc_pct_day(
   p,
   l_thresh = NULL,
   u_thresh = NULL,
-  yearly = FALSE
+  yearly = FALSE,
+  id = NULL
 )
 }
 \arguments{
-\item{df}{A dataframe containing an ID column and date-based columns.}
+\item{df}{A dataframe containing a unit identifier column and date-based
+columns.}
 
 \item{iteration}{optional character to be print before computation. Usually,
 it is the name of the object on which the function is applied. This is useful
@@ -31,6 +33,10 @@ Values below this will be excluded.}
 Values above this will be excluded.}
 
 \item{yearly}{(optional) Logical, if TRUE calculate also yearly daily values.}
+
+\item{id}{Optional character string naming the column that identifies the
+units. When \code{NULL}, \code{ID} is used, or \code{ID_adm_div} when that is the only
+one present.}
 }
 \value{
 A dataframe with computed percentile-based day values for each month,

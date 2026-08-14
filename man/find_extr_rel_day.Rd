@@ -9,11 +9,13 @@ find_extr_rel_day(
   iteration = NULL,
   u_thresh = NULL,
   l_thresh = NULL,
-  unit = "unit"
+  unit = "unit",
+  id = NULL
 )
 }
 \arguments{
-\item{df}{A dataframe containing an ID column and date-based columns.}
+\item{df}{A dataframe containing a unit identifier column and date-based
+columns.}
 
 \item{iteration}{optional character to be print before computation. Usually,
 it is the name of the object on which the function is applied. This is useful
@@ -28,6 +30,10 @@ for each ID and month. Typically computed using \code{calc_pct_day()}.}
 
 \item{unit}{(Optional) A character string specifying the unit name to replace
 "unit" in output columns.}
+
+\item{id}{Optional character string naming the column that identifies the
+units. When \code{NULL}, \code{ID} is used, or \code{ID_adm_div} when that is the only
+one present.}
 }
 \value{
 A dataframe with columns indicating whether values exceeded or fell

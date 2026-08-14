@@ -42,12 +42,7 @@ calc_road_density <- function(polygons, roads, poly_id = NULL, return_geometry =
         roads <- terra::project(roads, terra::crs(polygons))
     }
 
-    # find polygon ID
-    if (is.null(poly_id)) {
-        found_ids <- grep("^(ID|ID_adm_div)$", names(polygons), value = TRUE)
-        if (length(found_ids) == 0) stop("No valid ID column found. Provide `poly_id` explicitly.")
-        poly_id <- found_ids[1]
-    }
+    poly_id <- resolve_key(polygons, poly_id, arg = "poly_id")
 
     # intersect roads with polygons
     roads_split <- terra::intersect(roads, polygons) |>

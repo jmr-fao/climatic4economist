@@ -5,7 +5,11 @@
 #' thresholds. Optionally it calculates the specified percentiles of daily values
 #' for the entire year.
 #'
-#' @param df A dataframe containing an ID column and date-based columns.
+#' @param df A dataframe containing a unit identifier column and date-based
+#'   columns.
+#' @param id Optional character string naming the column that identifies the
+#'   units. When `NULL`, `ID` is used, or `ID_adm_div` when that is the only
+#'   one present.
 #' @param iteration optional character to be print before computation. Usually,
 #'  it is the name of the object on which the function is applied. This is useful
 #'  when the function is used inside an apply family function to keep track of the
@@ -33,7 +37,8 @@ calc_pct_day <- function(df,
                          p,
                          l_thresh = NULL,
                          u_thresh = NULL,
-                         yearly = FALSE) {
+                         yearly = FALSE,
+                         id = NULL) {
 
     stopifnot("Either `l_thresh` or `u_thresh` is allowed, not both" =
                   !(!is.null(l_thresh) & !is.null(u_thresh)))
@@ -42,12 +47,16 @@ calc_pct_day <- function(df,
 
     if (!is.null(iteration)) cat("calculating percentile:", iteration, "\n")
 
+    key <- resolve_key(df, id)
+
     df_long <- df |>
-        dplyr::select(ID, dplyr::matches("[0-9]{4}")) |>
-        dplyr::distinct(ID, .keep_all = TRUE) |>
-        dplyr::rename_with(to_date) |>
+        dplyr::select(dplyr::all_of(key), dplyr::matches("[0-9]{4}")) |>
+        dplyr::distinct(dplyr::pick(dplyr::all_of(key)), .keep_all = TRUE) |>
+        # to_date() rewrites `_` and `.` and strips a leading X, which would
+        # mangle a key such as ID_adm_div; only the date columns need it
+        dplyr::rename_with(to_date, .cols = -dplyr::all_of(key)) |>
         data.table::as.data.table() |>
-        data.table::melt(id.vars = "ID",
+        data.table::melt(id.vars = key,
                          variable.name = "date",
                          value.name = "value")
 
@@ -57,18 +66,18 @@ calc_pct_day <- function(df,
     if (!is.null(u_thresh)) df_long[value > u_thresh, value := NA_real_]
 
     pct_mnth <- df_long[, quantile_df(value, p, replace = c(l_thresh, u_thresh)),
-            by = .(ID, month)] |>
-        dplyr::rename_with(.cols = -c(ID, month),
+            by = c(key, "month")] |>
+        dplyr::rename_with(.cols = -dplyr::all_of(c(key, "month")),
                            .fn = ~paste0("day_", .x))
     if (yearly) {
         pct_year <- df_long[, quantile_df(value, p, replace = c(l_thresh, u_thresh)),
-                            by = .(ID)] |>
-            dplyr::rename_with(.cols = -c(ID),
+                            by = key] |>
+            dplyr::rename_with(.cols = -dplyr::all_of(key),
                                .fn = ~paste0("yr_", .x))
 
         data.table::merge.data.table(pct_mnth,
                                      pct_year,
-                                     by = "ID",
+                                     by = key,
                                      allow.cartesian = TRUE)
     } else {
         pct_mnth

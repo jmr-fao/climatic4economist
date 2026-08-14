@@ -6,7 +6,10 @@
 #' calculates the amount of the excess.
 #'
 #' @param df A dataframe containing time-series data with column names
-#'  representing dates and a variable `ID` that identifies the unique units.
+#'  representing dates and a variable identifying the unique units.
+#' @param id Optional character string naming the column that identifies the
+#'   units. When `NULL`, `ID` is used, or `ID_adm_div` when that is the only
+#'   one present.
 #' @param u_thresh A numeric vector specifying upper threshold values. Optional,
 #'   default is NULL.
 #' @param l_thresh A numeric value specifying the lower threshold. Optional,
@@ -40,20 +43,25 @@
 #'                  X2022.06 = c(12, 18, 3))
 #' find_extr_abs_day(df, u_thresh = c(10, 20), l_thresh = 0.1)
 
-find_extr_abs_day <- function(df, u_thresh = NULL, l_thresh = NULL, unit = NULL) {
+find_extr_abs_day <- function(df, u_thresh = NULL, l_thresh = NULL, unit = NULL,
+                              id = NULL) {
+    key <- resolve_key(df, id)
+
     df_unique <- df |>
-        dplyr::select(ID, dplyr::matches("[0-9]{4}.[0-9]{2}")) |>
-        dplyr::distinct(ID, .keep_all = TRUE) |>
-        dplyr::rename_with(to_date) |>
+        dplyr::select(dplyr::all_of(key), dplyr::matches("[0-9]{4}.[0-9]{2}")) |>
+        dplyr::distinct(dplyr::pick(dplyr::all_of(key)), .keep_all = TRUE) |>
+        # to_date() rewrites `_` and `.` and strips a leading X, which would
+        # mangle a key such as ID_adm_div; only the date columns need it
+        dplyr::rename_with(to_date, .cols = -dplyr::all_of(key)) |>
         data.table::as.data.table() |>
-        data.table::melt(id.vars = "ID",
+        data.table::melt(id.vars = key,
                          variable.name = "date",
                          value.name = "value")
 
     # melt returns the former column names as a factor ordered by column
     # position; parse before sorting so rows end up in chronological order
     df_unique[, date := parse_date_label(date)]
-    data.table::setorder(df_unique, ID, date)
+    data.table::setorderv(df_unique, c(key, "date"))
 
     if (!is.null(u_thresh)) {
         day_abv <- purrr::map(u_thresh, is_above, x = df_unique) |>

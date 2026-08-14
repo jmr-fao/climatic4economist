@@ -3,7 +3,11 @@
 #' This function detects extreme spells by comparing observed spell
 #' duration with predefined percentile-based thresholds.
 #'
-#' @param spell A data frame containing spell duration data with an `ID` column.
+#' @param spell A data frame containing spell duration data with a unit
+#'   identifier column.
+#' @param id Optional character string naming the column that identifies the
+#'   units. When `NULL`, `ID` is used, or `ID_adm_div` when that is the only
+#'   one present.
 #' @param threshold A data frame containing dry spell percentile thresholds for
 #'   each `ID` and `month`, typically computed using `calc_pct_spell()`.
 #'
@@ -15,7 +19,9 @@
 #'
 #' @export
 
-find_extr_spell_rel <- function(spell, threshold) {
+find_extr_spell_rel <- function(spell, threshold, id = NULL) {
+    key <- resolve_key(spell, id)
+
     # Find extreme thresholds used to compute the spell for the percentiles
     u_perc_thresh_values <- threshold |>
         dplyr::select(dplyr::matches("abv")) |>
@@ -77,12 +83,12 @@ find_extr_spell_rel <- function(spell, threshold) {
     spell <- spell |>
         dplyr::mutate(month = month_label(date),
                       .after = date)
-    df_full <- dplyr::full_join(spell, threshold, by = c("ID", "month"))
+    df_full <- dplyr::full_join(spell, threshold, by = c(key, "month"))
 
     purrr::map(c(l_perc_thresh_values, u_perc_thresh_values),
                \(x) df_full |>
                    dplyr::select(
-                       ID, date, month,
+                       dplyr::all_of(key), date, month,
                        dplyr::matches(
                            # get the specific spell and its threshold
                            paste0("spell_[a-z]{3}_", x, "$", "|",
@@ -95,6 +101,7 @@ find_extr_spell_rel <- function(spell, threshold) {
                            # return excess days from threshold
                            .fns = ~dplyr::if_else(spell < .x | is.na(spell),
                                                   NA_integer_, spell - .x))) |>
-                   dplyr::select(ID, date, month, dplyr::matches("[0-9]{2}p$"))) |>
-        purrr::reduce(dplyr::full_join, c("ID", "date", "month"))
+                   dplyr::select(dplyr::all_of(key), date, month,
+                                 dplyr::matches("[0-9]{2}p$"))) |>
+        purrr::reduce(dplyr::full_join, by = c(key, "date", "month"))
 }

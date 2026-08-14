@@ -4,13 +4,18 @@
 \alias{find_extr_spell_rel}
 \title{Identify relative extreme spells}
 \usage{
-find_extr_spell_rel(spell, threshold)
+find_extr_spell_rel(spell, threshold, id = NULL)
 }
 \arguments{
-\item{spell}{A data frame containing spell duration data with an \code{ID} column.}
+\item{spell}{A data frame containing spell duration data with a unit
+identifier column.}
 
 \item{threshold}{A data frame containing dry spell percentile thresholds for
 each \code{ID} and \code{month}, typically computed using \code{calc_pct_spell()}.}
+
+\item{id}{Optional character string naming the column that identifies the
+units. When \code{NULL}, \code{ID} is used, or \code{ID_adm_div} when that is the only
+one present.}
 }
 \value{
 A data frame containing:

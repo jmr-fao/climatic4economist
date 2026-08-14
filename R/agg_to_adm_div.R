@@ -29,6 +29,17 @@
 #'
 
 agg_to_adm_div <- function(df, match_col, extra_col = NULL) {
+    # The key is fixed here, unlike elsewhere in the package: this function
+    # aggregates *to* administrative divisions, so `ID_adm_div` is what it
+    # means rather than whichever key the data happens to carry. Say so up
+    # front, or `any_of()` below silently drops the grouping and the failure
+    # surfaces later as an opaque tidyselect error from `relocate()`.
+    if (!"ID_adm_div" %in% names(df)) {
+        stop("`df` must contain an `ID_adm_div` column to aggregate by. ",
+             "Administrative divisions come from `read_GAUL()` or ",
+             "`read_geoBoundaries()`.", call. = FALSE)
+    }
+
     df |>
         dplyr::group_by(dplyr::pick(dplyr::any_of(c("ID_adm_div", "lag")))) |>
         dplyr::summarise(

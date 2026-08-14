@@ -5,7 +5,11 @@
 #' specified percentiles and calculates the excess or deficit relative to these
 #' thresholds.
 #'
-#' @param df A dataframe containing an ID column and date-based columns.
+#' @param df A dataframe containing a unit identifier column and date-based
+#'   columns.
+#' @param id Optional character string naming the column that identifies the
+#'   units. When `NULL`, `ID` is used, or `ID_adm_div` when that is the only
+#'   one present.
 #' @param iteration optional character to be print before computation. Usually,
 #'  it is the name of the object on which the function is applied. This is useful
 #'  when the function is used inside an apply family function to keep track of the
@@ -39,31 +43,37 @@ find_extr_rel_day <- function(df,
                               iteration = NULL,
                               u_thresh = NULL,
                               l_thresh = NULL,
-                              unit = "unit") {
+                              unit = "unit",
+                              id = NULL) {
 
     if (!is.null(iteration)) cat("findig extreme day:", iteration, "\n")
 
+    key <- resolve_key(df, id)
+
     df_long <- df |>
-        dplyr::select(ID, dplyr::matches("[0-9]{4}")) |>
-        dplyr::distinct(ID, .keep_all = TRUE) |>
-        dplyr::rename_with(to_date) |>
+        dplyr::select(dplyr::all_of(key), dplyr::matches("[0-9]{4}")) |>
+        dplyr::distinct(dplyr::pick(dplyr::all_of(key)), .keep_all = TRUE) |>
+        # to_date() rewrites `_` and `.` and strips a leading X, which would
+        # mangle a key such as ID_adm_div; only the date columns need it
+        dplyr::rename_with(to_date, .cols = -dplyr::all_of(key)) |>
         data.table::as.data.table() |>
-        data.table::melt(id.vars = "ID",
+        data.table::melt(id.vars = key,
                          variable.name = "date",
                          value.name = "value")
 
     # melt returns the former column names as a factor ordered by column
     # position; parse before sorting so rows end up in chronological order
     df_long[, date := parse_date_label(date)]
-    data.table::setorder(df_long, ID, date)
+    data.table::setorderv(df_long, c(key, "date"))
 
     df_long[, month := month_label(date), ]
 
     if (!is.null(u_thresh)) {
         abv <- u_thresh |>
-            dplyr::select(ID, month, dplyr::matches("_[0-9]?[0-9]p$")) |>
+            dplyr::select(dplyr::all_of(key), month,
+                          dplyr::matches("_[0-9]?[0-9]p$")) |>
             dplyr::distinct() |>
-            dplyr::full_join(df_long, by = c("ID", "month"),
+            dplyr::full_join(df_long, by = c(key, "month"),
                              relationship = "one-to-many") |>
             dplyr::mutate(
                 dplyr::across(
@@ -89,9 +99,10 @@ find_extr_rel_day <- function(df,
 
     if(!is.null(l_thresh)) {
         blw <- l_thresh |>
-            dplyr::select(ID, month, dplyr::matches("_[0-9]?[0-9]p$")) |>
+            dplyr::select(dplyr::all_of(key), month,
+                          dplyr::matches("_[0-9]?[0-9]p$")) |>
             dplyr::distinct() |>
-            dplyr::full_join(df_long, by = c("ID", "month"),
+            dplyr::full_join(df_long, by = c(key, "month"),
                              relationship = "one-to-many") |>
             dplyr::mutate(
                 dplyr::across(
@@ -117,7 +128,7 @@ find_extr_rel_day <- function(df,
 
     list(df_long, abv, blw) |>
         purrr::keep(is.data.frame) |>
-        purrr::reduce(dplyr::full_join, by = c("ID", "date")) |>
+        purrr::reduce(dplyr::full_join, by = c(key, "date")) |>
         dplyr::select(-month) |>
         dplyr::rename_with(~gsub("unit", unit, .x)) |>
         dplyr::as_tibble()
