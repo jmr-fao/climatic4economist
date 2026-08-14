@@ -43,6 +43,5 @@ extract_cell_by_poly <- function(raster, poly, ...) {
         dplyr::relocate(ID_adm_div, x, y, coverage_fraction) |>
         tibble::as_tibble() |>
         dplyr::rename_with(~gsub("\\.", "_", .x)) |>
-        dplyr::relocate(ID_adm_div, x, y) |>
         dplyr::rename(x_cell = x, y_cell = y)
 }

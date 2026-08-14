@@ -55,10 +55,7 @@ read_geoBoundaries <- function(path_to_files, iso, lvl = 2, file_format = "geojs
         lapply(tidyterra::select, c(iso, adm_div_1)) |>
         setNames(iso_name)
 
-    out <- lapply(adm_div_1,
-                  dplyr::mutate,
-                  ID_adm_div = as.character(1:dplyr::n()),
-                  .before = 1)
+    out <- adm_div_1
 
     if (lvl == 2) {
         adm_div_1 <- lapply(adm_div_1, tidyterra::select, adm_div_1)
@@ -81,12 +78,10 @@ read_geoBoundaries <- function(path_to_files, iso, lvl = 2, file_format = "geojs
         adm_div_2 <- purrr::map2(adm_div_2_poly, adm_div_2_info, merge_by_common) |>
             purrr::map(tidyterra::relocate, iso, adm_div_1, adm_div_2)
 
-        out <- lapply(adm_div_2,
-                      dplyr::mutate,
-                      ID_adm_div = as.character(1:dplyr::n()),
-                      .before = 1)
+        out <- adm_div_2
     }
 
+    # ID_adm_div is assigned once here, for whichever level was built
     adm_div_out <- out |>
         lapply(\(x) tidyterra::mutate(x,
                                       ID_adm_div = as.character(1:dplyr::n()),

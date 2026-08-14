@@ -28,10 +28,10 @@
 #' @export
 
 find_folder <- function(folder_name, root = "Users") {
-    climatic4economist::find_root_directory(
+    find_root_directory(
         root_directories = root
     ) |>
-        climatic4economist::find_subfolder(
+        find_subfolder(
             target = folder_name
         )
 }

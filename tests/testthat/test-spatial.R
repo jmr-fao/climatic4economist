@@ -117,6 +117,31 @@ test_that("georef_coord builds a point SpatVector with one row per ID", {
     expect_equal(nrow(v), 2L)  # duplicate coordinates collapse
 })
 
+test_that("extract_cell_by_poly returns one row per covered cell", {
+    r <- terra::rast(xmin = 0, xmax = 10, ymin = 0, ymax = 10,
+                     res = 1, crs = "epsg:4326")
+    terra::values(r) <- seq_len(terra::ncell(r))
+    names(r) <- "temp"
+    p <- terra::vect(terra::ext(2, 5, 2, 5), crs = "epsg:4326")
+
+    out <- extract_cell_by_poly(r, p)
+
+    expect_s3_class(out, "tbl_df")
+    expect_equal(nrow(out), 9L)   # a 3x3 block of 1-degree cells
+})
+
+test_that("extract_cell_by_poly puts the identifier and coordinates first", {
+    r <- terra::rast(xmin = 0, xmax = 10, ymin = 0, ymax = 10,
+                     res = 1, crs = "epsg:4326")
+    terra::values(r) <- seq_len(terra::ncell(r))
+    p <- terra::vect(terra::ext(2, 5, 2, 5), crs = "epsg:4326")
+
+    out <- extract_cell_by_poly(r, p)
+
+    expect_equal(names(out)[1:4],
+                 c("ID_adm_div", "x_cell", "y_cell", "coverage_fraction"))
+})
+
 test_that("extract_by_coord returns cell values with their coordinates", {
     r <- lonlat_raster()
     names(r) <- "temp"

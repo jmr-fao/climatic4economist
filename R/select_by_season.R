@@ -60,7 +60,7 @@ select_by_season <- function(df, start_month, end_month) {
     col_names <- names(df)
     id_col <- col_names[!grepl("[0-9]{4}", col_names)]
     date_col <- col_names[grepl("[0-9]{4}", col_names)]
-    month_col <- climatic4economist::to_date(date_col) |>
+    month_col <- to_date(date_col) |>
         lubridate::ymd(truncated = 2) |>
         lubridate::month()
 

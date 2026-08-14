@@ -117,7 +117,6 @@ aggregate_by_year <- function(df_long, id_vars, pars) {
     df_long |>
         dplyr::mutate(
             time_label = to_date(time_label),
-            date_clean = lubridate::as_date(time_label),
             time_group = find_lag(time_label, last_date, unit = "year")
             ) |>
         dplyr::group_by(dplyr::pick(dplyr::any_of(id_vars)), time_group) |>
