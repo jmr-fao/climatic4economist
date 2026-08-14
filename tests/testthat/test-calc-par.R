@@ -79,38 +79,88 @@ test_that("calc_par warns when the last date is not a December month end", {
                    "not the last day of a month")
 })
 
-test_that("month aggregation returns no rows at all for monthly input", {
-    # aggregate_by_month() filters on n_days > 1. Data already at monthly
-    # resolution has exactly one observation per period, so every period is
-    # dropped and the caller silently loses every unit: no error, no warning,
-    # and an empty frame rather than a missing value.
-    df <- monthly_df(values = 1)
-    out <- calc_par(df, pars = list(total = sum), agg_period = "month")
+daily_df <- function(from, to, id = "1", value = 1) {
+    dates <- format(seq(as.Date(from), as.Date(to), by = "day"), "%Y-%m-%d")
+    df <- data.frame(ID = id)
+    for (d in dates) df[[d]] <- value
+    df
+}
 
-    expect_equal(nrow(out), 0L)
-    expect_true("ID" %in% names(out))
+test_that("month aggregation stops on data already at monthly resolution", {
+    # every period holds one observation, so there is nothing to aggregate
+    df <- monthly_df(values = 1)
+
+    expect_error(calc_par(df, pars = list(total = sum), agg_period = "month"),
+                 "already at monthly resolution")
 })
 
-test_that("the n_days > 1 filter turns on whether a partial month has 1 or 2 days", {
-    # A full December alongside a November represented by a single day: the
-    # sliver is dropped and December stands alone.
-    one_day <- c("2023-11-30",
-                 format(seq(as.Date("2023-12-01"), as.Date("2023-12-31"),
-                            by = "day"), "%Y-%m-%d"))
-    df1 <- data.frame(ID = "1")
-    for (d in one_day) df1[[d]] <- 1
+test_that("the monthly-resolution error names the alternatives", {
+    df <- monthly_df(values = 1)
+    expect_error(calc_par(df, pars = list(total = sum), agg_period = "month"),
+                 "agg_period = NULL")
+})
 
-    # The same December, but November now has two days: the sliver survives and
-    # is averaged in as though it were a whole month.
-    two_day <- c(format(seq(as.Date("2023-11-29"), as.Date("2023-11-30"),
-                            by = "day"), "%Y-%m-%d"),
-                 format(seq(as.Date("2023-12-01"), as.Date("2023-12-31"),
-                            by = "day"), "%Y-%m-%d"))
-    df2 <- data.frame(ID = "1")
-    for (d in two_day) df2[[d]] <- 1
+test_that("partial months are dropped whether they hold one day or several", {
+    # a full December, preceded by a November sliver of varying length
+    for (n_nov in c(1, 2, 5)) {
+        df <- daily_df(as.Date("2023-11-30") - (n_nov - 1), "2023-12-31")
+        out <- calc_par(df, pars = list(total = sum), agg_period = "month")
+        # the sliver never enters the average, so December stands alone
+        expect_equal(out$total, 31)
+    }
+})
 
-    expect_equal(calc_par(df1, pars = list(total = sum), agg_period = "month")$total, 31)
-    expect_equal(calc_par(df2, pars = list(total = sum), agg_period = "month")$total, 16.5)
+test_that("a month above the coverage threshold is kept", {
+    # November represented by 27 of its 30 days is 0.9 coverage
+    df <- daily_df("2023-11-04", "2023-12-31")
+    out <- calc_par(df, pars = list(total = sum), agg_period = "month")
+
+    expect_equal(out$total, mean(c(27, 31)))
+})
+
+test_that("min_coverage moves the threshold", {
+    # November holds 15 of 30 days: kept at 0.5, dropped at 0.8
+    df <- daily_df("2023-11-16", "2023-12-31")
+
+    strict <- calc_par(df, pars = list(total = sum), agg_period = "month")
+    relaxed <- calc_par(df, pars = list(total = sum), agg_period = "month",
+                        min_coverage = 0.5)
+
+    expect_equal(strict$total, 31)
+    expect_equal(relaxed$total, mean(c(15, 31)))
+})
+
+test_that("min_coverage = 0 keeps every period", {
+    df <- daily_df("2023-11-30", "2023-12-31")
+    out <- calc_par(df, pars = list(total = sum), agg_period = "month",
+                    min_coverage = 0)
+    expect_equal(out$total, mean(c(1, 31)))
+})
+
+test_that("the coverage error reports the best period reached", {
+    # nothing close to a full month, so the message quotes the shortfall
+    df <- daily_df("2023-12-25", "2023-12-31")
+    expect_error(calc_par(df, pars = list(total = sum), agg_period = "month"),
+                 "most complete period")
+})
+
+test_that("calc_par validates min_coverage", {
+    df <- daily_df("2023-10-01", "2023-12-31")
+    expect_error(calc_par(df, pars = list(total = sum), agg_period = "month",
+                          min_coverage = 1.5), "between 0 and 1")
+    expect_error(calc_par(df, pars = list(total = sum), agg_period = "month",
+                          min_coverage = -1), "between 0 and 1")
+    expect_error(calc_par(df, pars = list(total = sum), agg_period = "month",
+                          min_coverage = c(0.5, 0.8)), "between 0 and 1")
+})
+
+test_that("min_coverage does not affect the other aggregation paths", {
+    df <- monthly_df(values = 1)
+    expect_equal(calc_par(df, pars = list(avg = mean), min_coverage = 0.9)$avg,
+                 calc_par(df, pars = list(avg = mean))$avg)
+    expect_equal(calc_par(df, pars = list(total = sum), agg_period = "year",
+                          min_coverage = 0.9)$total,
+                 calc_par(df, pars = list(total = sum), agg_period = "year")$total)
 })
 
 test_that("month aggregation summarises daily data within each month", {

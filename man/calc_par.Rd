@@ -4,7 +4,14 @@
 \alias{calc_par}
 \title{Calculate Aggregated Parameters with Optional Temporal Aggregation}
 \usage{
-calc_par(df, pars, prefix = NULL, suffix = NULL, agg_period = NULL)
+calc_par(
+  df,
+  pars,
+  prefix = NULL,
+  suffix = NULL,
+  agg_period = NULL,
+  min_coverage = 0.8
+)
 }
 \arguments{
 \item{df}{A data frame containing spatial identifier columns and numeric
@@ -25,6 +32,11 @@ parameter columns. Defaults to \code{NULL}.}
 temporal aggregation level. Supported values are \code{"year"} and \code{"month"}.
 If provided, aggregation is performed within each period before averaging
 across periods. Defaults to \code{NULL}.}
+
+\item{min_coverage}{Number between 0 and 1. The share of a month's days that
+must be present for that month to enter the average. Used only when
+\code{agg_period = "month"}. Defaults to \code{0.8}, so a 31-day month needs at
+least 25 observations. Set to \code{0} to keep every period.}
 }
 \value{
 A tibble with one row per spatial unit and columns containing the
@@ -44,6 +56,22 @@ using the functions provided in \code{pars}, and the resulting statistics are th
 averaged across periods. If \code{agg_period = NULL}, parameters are computed
 directly across all available observations.
 }
+\section{Monthly coverage}{
+
+With \code{agg_period = "month"} the values are first summarised within each
+month and those monthly statistics are then averaged. A month represented by
+only a handful of days would otherwise enter that average as though it were
+a whole month, dragging the result toward the partial period. \code{min_coverage}
+guards against this by comparing the observations present in each window
+against the number of days the window actually spans.
+
+If no month reaches the threshold the function stops rather than returning
+an empty result. The most common cause is passing data that is already
+monthly: each period then holds a single observation, so there is nothing to
+aggregate within a month. Use \code{agg_period = NULL} to summarise across all
+observations, or \code{agg_period = "year"} to average monthly values by year.
+}
+
 \examples{
 df <- data.frame(
   ID = c(1, 2),
