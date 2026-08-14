@@ -141,6 +141,8 @@ build_name_sets <- function(df, parent_cols, col) {
         dplyr::filter(!is.na(name_var)) |>
         dplyr::summarise(
             names_var = list(sort(name_var)),
-            .by = .data$parent
+            # `.by` is a tidyselect argument, where `.data$` was deprecated in
+            # tidyselect 1.2.0
+            .by = parent
         )
 }

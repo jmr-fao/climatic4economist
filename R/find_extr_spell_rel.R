@@ -42,7 +42,10 @@ find_extr_spell_rel <- function(spell, threshold) {
             gsub("(^.*)_([0-9]*\\.?[0-9]?)$", "\\2", x = _) |>
             as.numeric() |>
             unique()
+        # intersect() yields an empty vector rather than NULL when nothing
+        # matches, so normalise it or the guards below will not fire
         u_perc_thresh_values <- intersect(u_spell_thresh_values, u_perc_thresh_values)
+        if (length(u_perc_thresh_values) == 0) u_perc_thresh_values <- NULL
     }
     if(length(l_perc_thresh_values) == 0) {
         l_perc_thresh_values <- NULL
@@ -54,6 +57,7 @@ find_extr_spell_rel <- function(spell, threshold) {
             as.numeric() |>
             unique()
         l_perc_thresh_values <- intersect(l_spell_thresh_values, l_perc_thresh_values)
+        if (length(l_perc_thresh_values) == 0) l_perc_thresh_values <- NULL
     }
 
     # Print the extreme threshold that matches the computation of the observed spell
