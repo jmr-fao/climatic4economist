@@ -6,6 +6,8 @@
 #' @param x A numeric vector for which percentiles are computed.
 #' @param p A numeric vector specifying the probabilities at which percentiles
 #' should be computed (values between 0 and 1).
+#' @param replace A numeric value used for every percentile when all elements of
+#'   `x` are `NA`. Passed to [quantile_na_check()].
 #'
 #' @return A tibble (data frame) with the computed percentiles, where column
 #' names are derived from the probability values (e.g., `25p`, `50p`, `75p`).

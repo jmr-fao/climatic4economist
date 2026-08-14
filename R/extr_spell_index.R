@@ -6,7 +6,7 @@
 #'
 #' @param df A dataframe containing an interview date, event dates, and
 #'   spell-related variables.
-#' @param iteracation optional character to be print before computation. Usually,
+#' @param iteration optional character to be print before computation. Usually,
 #'  it is the name of the object on which the function is applied. This is useful
 #'  when the function is used inside an apply family function to keep track of the
 #'  iterations.
@@ -17,6 +17,9 @@
 #'   for 12 months).
 #' @param n_lags (Optional) The number of lag periods to consider. Default is 0
 #'   (only the defined interval).
+#' @param extra_col <[`tidy-select`][dplyr::dplyr_tidy_select]> Optional columns
+#'   carried through unchanged. They must be constant within each `id`/`lag`
+#'   group, since they are reduced with `unique()`.
 #'
 #' @return A dataframe summarizing spell-related variables for each ID and lag
 #'   period.
@@ -28,7 +31,7 @@
 #'                  interval = "12m", n_lags = 3)
 
 extr_spell_index <- function(df,
-                             iteracation = NULL,
+                             iteration = NULL,
                              interview,
                              id,
                              interval,
@@ -38,7 +41,7 @@ extr_spell_index <- function(df,
     if(missing(interval)) stop("Error: provide a time interval over which the aggregation is computer. E.g. `1 year`")
     if(missing(id)) stop("Error: provide a column name specifying the unique identifier for each unit")
 
-    if (!is.null(iteracation)) cat("Computing extreme spell index:", iteracation, "\n")
+    if (!is.null(iteration)) cat("Computing extreme spell index:", iteration, "\n")
 
     n_period <- gsub("[a-zA-Z]| ", "", interval) |>
         as.integer()
@@ -76,7 +79,9 @@ extr_spell_index <- function(df,
 
     df_lag |>
         dplyr::group_by({{id}}, lag) |>
-        dplyr::summarise(dplyr::across(.cols = dplyr::matches("^spell"),
+        dplyr::summarise(dplyr::across(.cols = {{extra_col}},
+                                       .fns = unique),
+                         dplyr::across(.cols = dplyr::matches("^spell"),
                                        .fns = list(max  = ~ max_na_check(.x),
                                                    mean = ~ mean_na_check(.x),
                                                    sum  = ~ sum_na_check(.x),

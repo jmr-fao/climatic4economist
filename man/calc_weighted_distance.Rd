@@ -36,7 +36,7 @@ values(r) <- runif(ncell(r), 1, 10)
 # Example target point
 pts <- vect(matrix(c(0.5, 0.5), ncol = 2), crs = crs(r))
 
-dist_raster <- cal_weighted_distance(pts, r)
+dist_raster <- calc_weighted_distance(pts, r)
 plot(dist_raster)
 }
 }

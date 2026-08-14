@@ -38,7 +38,7 @@ If CRS differ, \code{y} is automatically reprojected to the CRS of \code{x}.
 }
 \examples{
 \dontrun{
-x_with_dist <- cal_nearest_distance(
+x_with_dist <- calc_nearest_distance(
   x = polygons,
   y = roads,
   method = "haversine"

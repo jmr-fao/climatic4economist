@@ -9,10 +9,17 @@ agg_to_adm_div(df, match_col, extra_col = NULL)
 \arguments{
 \item{df}{A data frame containing extreme event indicators, administrative division IDs,
 and coverage fractions.}
+
+\item{match_col}{A regular expression selecting the indicator columns to
+aggregate, for example \code{"^day|^spell"}.}
+
+\item{extra_col}{<\code{\link[dplyr:dplyr_tidy_select]{tidy-select}}> Optional columns
+carried through unchanged. They must be constant within each group, since
+they are reduced with \code{unique()}.}
 }
 \value{
-A data frame grouped by administrative division (\code{ID_adm_div}) and \code{date},
-with aggregated values for daily (\verb{^day}) and spell (\verb{^spell}) indicators.
+A data frame grouped by administrative division (\code{ID_adm_div}) and \code{lag},
+with values aggregated by a weighted mean using \code{coverage_fraction} as weights.
 }
 \description{
 This function aggregates daily and spell-based extreme event indicators to the level
@@ -22,11 +29,11 @@ of administrative divisions using a weighted mean, where weights are based on th
 \examples{
 df <- data.frame(
   ID_adm_div = c(1, 1, 2, 2),
-  date = as.Date(c("2024-01-01", "2024-01-01", "2024-01-02", "2024-01-02")),
+  lag = c(0, 0, 0, 0),
   day_abv_90p = c(5, 10, 2, 8),
   spell_abv_90p = c(2, 3, 1, 2),
   coverage_fraction = c(0.6, 0.4, 0.7, 0.3)
 )
-agg_to_adm_div(df)
+agg_to_adm_div(df, match_col = "^day|^spell")
 
 }

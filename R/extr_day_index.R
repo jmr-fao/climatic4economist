@@ -4,7 +4,7 @@
 #' interview date, aggregating them over a specified time interval.
 #'
 #' @param df A data frame containing daily extreme values.
-#' @param iteracation optional character to be print before computation. Usually,
+#' @param iteration optional character to be print before computation. Usually,
 #'  it is the name of the object on which the function is applied. This is useful
 #'  when the function is used inside an apply family function to keep track of the
 #'  iterations.
@@ -14,6 +14,9 @@
 #'          `"3 months"`, `"1 year"`).
 #' @param n_lags Integer. The maximum lag (in units of `interval`) to consider.
 #'   Default is 0.
+#' @param extra_col <[`tidy-select`][dplyr::dplyr_tidy_select]> Optional columns
+#'   carried through unchanged. They must be constant within each `id`/`lag`
+#'   group, since they are reduced with `unique()`.
 #'
 #' @return A data frame with:
 #'   - `id`: The unique identifier.
@@ -33,7 +36,7 @@
 #' extr_day_index(df, interview = "2024-02-01", id = ID, interval = "1 year", n_lags = 1)
 
 extr_day_index <- function(df,
-                           iteracation = NULL,
+                           iteration = NULL,
                            interview,
                            id,
                            interval,
@@ -44,7 +47,7 @@ extr_day_index <- function(df,
     if(missing(interval)) stop("Error: provide a time interval over which the aggregation is computer. E.g. `1 year`")
     if(missing(id)) stop("Error: provide a column name specifying the unique identifier for each unit")
 
-    if (!is.null(iteracation)) cat("Computing extreme day index:", iteracation, "\n")
+    if (!is.null(iteration)) cat("Computing extreme day index:", iteration, "\n")
 
     n_period <- gsub("[a-zA-Z]| ", "", interval) |>
         as.integer()

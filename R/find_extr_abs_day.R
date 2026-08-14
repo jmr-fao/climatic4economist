@@ -38,7 +38,7 @@
 #' df <- data.frame(ID = 1:3,
 #'                  X2022.12 = c(10, 15, 5),
 #'                  X2022.06 = c(12, 18, 3))
-#' find_abs_extreme_pr(df, u_thresh = c(10, 20), l_thresh = 0.1)
+#' find_extr_abs_day(df, u_thresh = c(10, 20), l_thresh = 0.1)
 
 find_extr_abs_day <- function(df, u_thresh = NULL, l_thresh = NULL, unit = NULL) {
     df_unique <- df |>

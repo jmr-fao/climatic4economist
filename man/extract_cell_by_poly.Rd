@@ -32,7 +32,7 @@ terra::values(r) <- runif(ncell(r), min = 0, max = 100)
 poly <- sf::st_as_sf(sf::st_buffer(st_sfc(sf::st_point(c(5, 5))), dist = 1))
 
 # Extract raster values within the polygon
-extract_by_poly(r, poly)
+extract_cell_by_poly(r, poly)
 }
 \seealso{
 \code{\link[exactextractr]{exact_extract}}

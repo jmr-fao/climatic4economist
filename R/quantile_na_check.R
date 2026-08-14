@@ -10,8 +10,9 @@
 #' @param replace A numeric value to return if all elements in `x` are `NA`.
 #'   Defaults to `0`.
 #'
-#' @return A numeric value representing the standard deviation of `x`, ignoring
-#'   `NA` values. If all values in `x` are `NA`, it returns `replace`.
+#' @return A named numeric vector with the sample percentiles of `x` at the
+#'   probabilities `p`, ignoring `NA` values. If all values in `x` are `NA`,
+#'   every element is `replace`.
 #'
 #' @seealso [quantile()]
 #'

@@ -11,6 +11,9 @@ quantile_df(x, p, replace)
 
 \item{p}{A numeric vector specifying the probabilities at which percentiles
 should be computed (values between 0 and 1).}
+
+\item{replace}{A numeric value used for every percentile when all elements of
+\code{x} are \code{NA}. Passed to \code{\link[=quantile_na_check]{quantile_na_check()}}.}
 }
 \value{
 A tibble (data frame) with the computed percentiles, where column

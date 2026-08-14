@@ -28,10 +28,10 @@
 #' roads    <- terra::vect("roads.shp")
 #'
 #' # Return tibble (default)
-#' result_tbl <- cal_road_density(polygons, roads)
+#' result_tbl <- calc_road_density(polygons, roads)
 #'
 #' # Return SpatVector with geometries
-#' result_vect <- cal_road_density(polygons, roads, return_geometry = TRUE)
+#' result_vect <- calc_road_density(polygons, roads, return_geometry = TRUE)
 #' }
 
 calc_road_density <- function(polygons, roads, poly_id = NULL, return_geometry = FALSE) {

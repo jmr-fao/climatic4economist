@@ -4,7 +4,7 @@
 \alias{extract_by_coord}
 \title{Extract values from a SpatRaster}
 \usage{
-extract_by_coord(raster, coord, iteracation = NULL, ...)
+extract_by_coord(raster, coord, iteration = NULL, ...)
 }
 \arguments{
 \item{raster}{A data frame. It must contains two variables named \code{lat} and
@@ -14,7 +14,7 @@ extract_by_coord(raster, coord, iteracation = NULL, ...)
 following formats: WKT/WKT2, \if{html}{\out{<authority>}}:\if{html}{\out{<code>}}, or PROJ-string notation.
 See \link[terra]{crs}.}
 
-\item{iteracation}{optional character to be print before computation. Usually,
+\item{iteration}{optional character to be print before computation. Usually,
 it is the name of the object on which the function is applied. This is useful
 when the function is used inside an apply family function to keep track of the
 iterations.}

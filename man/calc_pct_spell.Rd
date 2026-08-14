@@ -2,52 +2,47 @@
 % Please edit documentation in R/calc_pct_spell.R
 \name{calc_pct_spell}
 \alias{calc_pct_spell}
-\title{Compute spell percentiles and summary statistics}
+\title{Compute spell length percentiles by month}
 \usage{
 calc_pct_spell(extr_day, p, min_spell = 2)
 }
 \arguments{
+\item{extr_day}{A data frame of daily extreme indicators, as returned by
+\code{\link[=find_extr_abs_day]{find_extr_abs_day()}} or \code{\link[=find_extr_rel_day]{find_extr_rel_day()}}. It must contain \code{ID}, \code{date}
+and the \verb{day_abv_*} / \verb{day_blw_*} indicator columns.}
+
 \item{p}{A numeric vector of probabilities (e.g., \code{c(0.1, 0.5, 0.9)})
 representing the percentiles to compute.}
 
-\item{df}{A data frame containing precipitation data with an \code{ID} column
-and daily precipitation values.}
-
-\item{dry_treshold}{A numeric value (default = 0.1) defining the precipitation
-threshold below which a day is considered dry.}
+\item{min_spell}{Integer. The minimum number of consecutive days required to
+form a spell. Default is 2. It is also used as the replacement value when a
+group has no spell at all.}
 }
 \value{
-A data frame containing:
-\itemize{
-\item \code{dry_day_mean}: Average proportion of dry days in each month.
-\item \code{dry_spell_mean}: Mean duration of dry spells per month.
-\item \code{dry_spell_sd}: Standard deviation of dry spell duration.
-\item \code{dry_spell_Xp}: Dry spell duration at the specified percentile \code{Xp}.
-}
+A data frame with one row per \code{ID} and \code{month}, containing one integer
+column per spell indicator and requested percentile, named \verb{*_Xp} where \code{Xp}
+is the percentile (e.g. \code{spell_abv_90p_50p}).
 }
 \description{
-This function calculates dry spell statistics, including mean, standard deviation,
-and selected percentiles, for each month within a given dataset.
+This function computes the spell durations of a set of daily extreme
+indicators with \code{\link[=find_spell]{find_spell()}}, then summarises them into the requested
+percentiles for each \code{ID} and calendar month.
 }
 \details{
 The function follows these steps:
 \enumerate{
-\item Reshapes \code{df} from wide to long format, extracting date and precipitation values.
-\item Converts the \code{date} column into a proper date object and extracts the \code{month}.
-\item Identifies dry days based on \code{dry_treshold} and computes dry spell durations.
-\item Calculates monthly summary statistics (\code{mean}, \code{sd}) for dry spells.
-\item Computes dry spell percentiles as specified by \code{p}.
-\item Merges all computed metrics into a single output table.
+\item Computes spell durations from the daily indicators with \code{\link[=find_spell]{find_spell()}}.
+\item Extracts the calendar \code{month} from \code{date}.
+\item Computes the requested percentiles of spell duration per \code{ID} and month.
+\item Rounds the resulting durations to integers.
 }
 }
 \examples{
-# Example dataset
-df <- data.frame(
-  ID = rep(1:3, each = 10),
-  `2000` = runif(30, 0, 5),
-  `2001` = runif(30, 0, 5),
-  `2002` = runif(30, 0, 5)
-)
-
-calc_pct_spell(df, p = c(0.1, 0.5, 0.9))
+\dontrun{
+extr_day <- find_extr_abs_day(df, l_thresh = 0.1)
+calc_pct_spell(extr_day, p = c(0.1, 0.5, 0.9))
+}
+}
+\seealso{
+\code{\link[=find_spell]{find_spell()}}, \code{\link[=calc_pct_day]{calc_pct_day()}}
 }

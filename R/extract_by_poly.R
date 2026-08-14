@@ -29,7 +29,7 @@
 #' @examples
 #' r <- terra::rast(nrows=10, ncols=10)
 #' terra::values(r) <- runif(ncell(r))
-#' p <- vterra::ect(matrix(c(0,0,1,0,1,1,0,1,0,0), ncol=2, byrow=TRUE), type="polygons")
+#' p <- terra::vect(matrix(c(0,0,1,0,1,1,0,1,0,0), ncol=2, byrow=TRUE), type="polygons")
 #'
 #' extract_by_poly(r, p)
 
@@ -38,7 +38,7 @@ extract_by_poly <- function(raster, poly, fn_agg = "mean", na_rm = TRUE, pkg = "
     if (is.null(pkg)) {
         pkg <-  dplyr::if_else(nrow(poly) > 1000, "exactextractr", "terra")
     }
-    match.arg(pkg, c("exactextractr", "terra"))
+    pkg <- match.arg(pkg, c("exactextractr", "terra"))
     if (pkg == "terra") {
         extract_values <- terra::extract(raster,
                                          poly,

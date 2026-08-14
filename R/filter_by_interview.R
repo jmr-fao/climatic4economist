@@ -33,61 +33,10 @@
 #' # Define interview and filter by 3 months interval
 #' filter_by_interview(df, interview = "date", interval = "3 months")
 
-# filter_by_interview <- function(df, interview, interval, missing = "drop") {
-#
-#     if (!grepl("^[0-9] ([Yy]ear|[Mm]onth)s?$", interval)) {
-#         stop("Invalid interval format. Use '# years' or '# months'.")
-#     }
-#
-#     n_period <- gsub("[a-zA-Z]| ", "", interval) |>
-#         as.numeric()
-#     period <- gsub("[0-9]| ", "", interval)
-#
-#     df <- df |>
-#         dplyr::mutate(end_date = clock::date_parse(to_date(({{interview}}))))
-#
-#
-#     if (missing == "drop") {
-#         any_na <- dplyr::pull(df, end_date) |>
-#             is.na() |>
-#             any()
-#         if (any_na) {
-#             cat("Missing interview are dropped!\n")
-#             df_missing <- df |>
-#                 dplyr::filter(!is.na(end_date))
-#         } else {
-#             df_missing <- df
-#         }
-#     }
-#
-#     df_clock <- df_missing |>
-#         dplyr::mutate(date = clock::date_parse(as.character(to_date(date)))) |>
-#         tidyr::nest(data = -end_date, .by = end_date) |>
-#         dplyr::mutate(
-#             start_date = dplyr::case_when(
-#                 grepl("[Yy]ear", period) ~ clock::add_years(end_date,
-#                                                             -n_period,
-#                                                             invalid = "previous"),
-#                 grepl("[Mm]onth", period) ~ clock::add_months(end_date,
-#                                                               -n_period,
-#                                                               invalid = "previous"),
-#                 .default = NA),
-#             .after = end_date)
-#
-#     df_clock  |>
-#         tidyr::nest(dates = c(start_date, end_date)) |>
-#         dplyr::mutate(
-#             data_2 = purrr::map2(data, dates, filter_between)) |>
-#         dplyr::select(-c(data, dates)) |>
-#         tidyr::unnest(data_2)
-# }
 filter_by_interview <- function(df, interview, interval, missing = "drop") {
-    # if (!grepl("^[0-9]+\\s*([Yy]ear|[Mm]onth)s?$", interval)) {
-    #     stop("Invalid interval format. Use '# years' or '# months'.")
-    # }
 
     n_period <- as.numeric(gsub("[a-zA-Z]|\\s", "", interval))
-    period <- tolower(gsub("[0-9]|\\s", "", interval))
+    period <- tolower(gsub("[0-9]|\\s|s$", "", interval))
     # validate period
     period <- match.arg(tolower(period), c("year", "month", "week", "day"))
 
@@ -110,7 +59,7 @@ filter_by_interview <- function(df, interview, interval, missing = "drop") {
         "year"  = clock::add_years(interview_date,  -n_period, invalid = "previous"),
         "month" = clock::add_months(interview_date, -n_period, invalid = "previous"),
         "week"  = clock::add_weeks(interview_date,  -n_period, invalid = "previous"),
-        "day"   = clock::add_days(interview_date    -n_period)
+        "day"   = clock::add_days(interview_date, -n_period)
     )
 
     keep <- obs_date > start_date & obs_date <= interview_date

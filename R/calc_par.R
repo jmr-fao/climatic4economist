@@ -27,8 +27,9 @@
 #'
 #' @return
 #' A tibble with one row per spatial unit and columns containing the
-#' aggregated statistics defined in `pars`. Output column names follow
-#' the pattern:
+#' aggregated statistics defined in `pars`. Output column names are taken from
+#' the names of `pars`, optionally wrapped by `prefix` and `suffix` as
+#' `"<prefix>_<name>_<suffix>"`.
 #'
 #' @export
 #'
@@ -117,10 +118,6 @@ aggregate_by_year <- function(df_long, id_vars, pars) {
         dplyr::mutate(
             time_label = to_date(time_label),
             date_clean = lubridate::as_date(time_label),
-            # # Calculate months from the end
-            # total_months = lubridate::interval(date_clean, last_date) %/% months(1),
-            # # 12-month rolling bins
-            # time_group = total_months %/% 12
             time_group = find_lag(time_label, last_date, unit = "year")
             ) |>
         dplyr::group_by(dplyr::pick(dplyr::any_of(id_vars)), time_group) |>
@@ -142,7 +139,7 @@ aggregate_by_month <- function(df_long, id_vars, pars) {
     if (!is_last_day_month) {
 
         msg <- paste0(
-            "The last_date (", last_date, ") is not the last day of a montn.\n",
+            "The last_date (", last_date, ") is not the last day of a month.\n",
             "This date is used as the reference anchor to calculate time intervals ",
             "to avoid bias in the summary aggregation by month."
         )
@@ -153,7 +150,6 @@ aggregate_by_month <- function(df_long, id_vars, pars) {
     df_long |>
         dplyr::mutate(time_label = to_date(time_label),
                       time_group = find_lag(time_label, last_date, unit = "month")) |>
-                      #lubridate::interval(date_clean, last_date) %/% months(1)) |>
         # intermediate aggregation
         dplyr::group_by(dplyr::pick(dplyr::any_of(id_vars)), time_group) |>
         dplyr::summarise(n_days = dplyr::n(),
@@ -166,61 +162,3 @@ aggregate_by_month <- function(df_long, id_vars, pars) {
                                        .fns = \(x) mean(x, na.rm = TRUE)),
                          .groups = "drop")
 }
-
-# calc_par <- function(df, pars, prefix = NULL, suffix = NULL, agg_period = NULL) {
-#
-#     id_vars <- c("ID", "ID_adm_div", "x_cell", "y_cell", "coverage_fraction")
-#
-#     # Pivot to long format
-#     df_long <- df |>
-#         dplyr::select(dplyr::any_of(id_vars), dplyr::matches("[0-9]{4}")) |>
-#         tidyr::pivot_longer(
-#             cols = dplyr::matches("[0-9]{4}"),
-#             names_to = "time_label",
-#             values_to = "value"
-#         )
-#
-#     # Process with intermediary grouping
-#     if (!is.null(agg_period)) {
-#         out <- df_long |>
-#             dplyr::mutate(
-#                 # Standardize date and extract group
-#                 time_label = climatic4economist::to_date(time_label),
-#                 time_group = dplyr::case_when(
-#                     agg_period == "year"  ~ substr(time_label, 1, 4),
-#                     agg_period == "month" ~ substr(time_label, 1, 7),
-#                     agg_period == "day" ~ substr(time_label, 1, 10),
-#                     TRUE ~ time_label)) |>
-#             # intermediate aggregation
-#             dplyr::group_by(dplyr::pick(dplyr::any_of(id_vars)), time_group) |>
-#             dplyr::summarise(dplyr::across(value, pars, .names = "{fn}"),
-#                              .groups = "drop") |>
-#             # final aggregation
-#             dplyr::group_by(dplyr::pick(dplyr::any_of(id_vars))) |>
-#             dplyr::summarise(dplyr::across(.cols = -time_group, .fns = mean),
-#                              .groups = "drop")
-#
-#     } else {
-#         # Process without intermediary grouping
-#         out <- df_long |>
-#             dplyr::group_by(dplyr::pick(dplyr::any_of(id_vars))) |>
-#             dplyr::summarise(dplyr::across(value, pars, .names = "{fn}"),
-#                              .groups = "drop")
-#     }
-#
-#     # rename with prefix
-#     if (!is.null(prefix)) {
-#         out <- out |>
-#             dplyr::rename_with(.fn = \(x) paste0(prefix, "_", x),
-#                                .cols = -dplyr::any_of(id_vars))
-#     }
-#
-#     # rename with suffix
-#     if (!is.null(suffix)) {
-#         out <- out |>
-#             dplyr::rename_with(.fn = \(x) paste0(x, "_", suffix),
-#                                .cols = -dplyr::any_of(id_vars))
-#     }
-#
-#     return(out)
-# }

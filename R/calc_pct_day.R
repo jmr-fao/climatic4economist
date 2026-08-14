@@ -6,7 +6,7 @@
 #' for the entire year.
 #'
 #' @param df A dataframe containing an ID column and date-based columns.
-#' @param iteracation optional character to be print before computation. Usually,
+#' @param iteration optional character to be print before computation. Usually,
 #'  it is the name of the object on which the function is applied. This is useful
 #'  when the function is used inside an apply family function to keep track of the
 #'  iterations.
@@ -29,7 +29,7 @@
 #' calc_pct_day(df, p = c(0.25, 0.5, 0.75), l_thresh = 60, u_thresh = 0.1)
 
 calc_pct_day <- function(df,
-                         iteracation = NULL,
+                         iteration = NULL,
                          p,
                          l_thresh = NULL,
                          u_thresh = NULL,
@@ -40,7 +40,7 @@ calc_pct_day <- function(df,
     stopifnot("`l_thresh` must have length 1" = length(l_thresh) <= 1)
     stopifnot("`u_thresh` must have length 1" = length(u_thresh) <= 1)
 
-    if (!is.null(iteracation)) cat("calculating percentile:", iteracation, "\n")
+    if (!is.null(iteration)) cat("calculating percentile:", iteration, "\n")
 
     df_long <- df |>
         dplyr::select(ID, dplyr::matches("[0-9]{4}")) |>

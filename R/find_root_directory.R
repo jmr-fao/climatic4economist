@@ -35,7 +35,8 @@ find_root_directory <- function(start = getwd(),
 
         parent <- dirname(current)
         if (parent == current) {  # reached filesystem root
-            stop(paste("Folder", root_directory, "not found"))
+            stop(paste("Folder", paste(root_directories, collapse = ", "),
+                       "not found"))
         }
 
         current <- parent

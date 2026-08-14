@@ -25,7 +25,7 @@
 #'
 #' @examples
 #' \dontrun{
-#' x_with_dist <- cal_nearest_distance(
+#' x_with_dist <- calc_nearest_distance(
 #'   x = polygons,
 #'   y = roads,
 #'   method = "haversine"

@@ -4,7 +4,7 @@
 \alias{merge_with_survey}
 \title{Merge survey observations with other data.}
 \usage{
-merge_with_survey(survey, new_value, iteracation = NULL)
+merge_with_survey(survey, new_value, iteration = NULL)
 }
 \arguments{
 \item{survey}{A data frame. It must contains an \code{ID} for the merging.}
@@ -12,7 +12,7 @@ merge_with_survey(survey, new_value, iteracation = NULL)
 \item{new_value}{A data frame. The data to be merge with the
 survey. It must contains an \code{ID} variable for the merging.}
 
-\item{iteracation}{optional character to be print before computation. Usually,
+\item{iteration}{optional character to be print before computation. Usually,
 it is the name of the object on which the function is applied. This is useful
 when the function is used inside an apply family function to keep track of the
 iterations.}

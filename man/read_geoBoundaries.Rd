@@ -7,13 +7,16 @@
 read_geoBoundaries(path_to_files, iso, lvl = 2, file_format = "geojson")
 }
 \arguments{
+\item{path_to_files}{A character string specifying the path where the country folders
+containing GeoJSON administrative division files are stored.}
+
 \item{iso}{A character vector with one or more ISO 3-letter country codes (e.g., \code{"KEN"}, \code{"UGA"}).}
 
 \item{lvl}{An integer specifying the desired level of administrative division to return:
 \code{1} for ADM1, or \code{2} for ADM2 (default).}
 
-\item{path_to_data}{A character string specifying the path where the country folders
-containing GeoJSON administrative division files are stored.}
+\item{file_format}{A character string with the file extension of the boundary
+files (default is \code{"geojson"}).}
 }
 \value{
 A named list of \code{SpatVector} objects, each corresponding to one country.
@@ -45,6 +48,6 @@ It performs intersection between ADM2 and ADM1 shapes to ensure hierarchical ali
 \examples{
 \dontrun{
 path <- "path/to/admin_data"
-read_geoBoundaries(path_to_data = path, iso = c("KEN", "UGA"), lvl = 2)
+read_geoBoundaries(path_to_files = path, iso = c("KEN", "UGA"), lvl = 2)
 }
 }

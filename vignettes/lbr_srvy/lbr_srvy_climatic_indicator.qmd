@@ -182,7 +182,7 @@ tmp_coord_c_10yrs <- purrr::pmap(
   select_by_dates)
 
 pre_extr <- purrr::pmap(list(pre_coord_mm_10yrs,
-                             iteracation = names(pre_coord_mm_10yrs),
+                             iteration = names(pre_coord_mm_10yrs),
                              u_thresh = pre_perc),
                         find_extr_rel_day,
                         unit = "mm") |>
@@ -190,7 +190,7 @@ pre_extr <- purrr::pmap(list(pre_coord_mm_10yrs,
 
 tmp_extr <- purrr::pmap(list(tmp_coord_c_10yrs, 
                              u_thresh = tmp_perc,
-                             iteracation = names(tmp_coord_c_10yrs) 
+                             iteration = names(tmp_coord_c_10yrs) 
                              ),
                         find_extr_rel_day,
                         unit = "c") |>
@@ -202,7 +202,7 @@ tmp_extr <- purrr::pmap(list(tmp_coord_c_10yrs,
 #| label: merge_with_survey
 
 pre_extr_survey <- purrr::pmap(list(surveys,
-                                    iteracation = names(surveys),
+                                    iteration = names(surveys),
                                     pre_extr),
                                merge_with_survey)
 
@@ -212,7 +212,7 @@ pre_extr_survey <- purrr::map(pre_extr_survey,
                               interval = "1 year")
 
 tmp_extr_survey <- purrr::pmap(list(surveys,
-                                    iteracation = names(surveys),
+                                    iteration = names(surveys),
                                     tmp_extr),
                                merge_with_survey)
 

@@ -4,7 +4,7 @@
 #' specified target frequency using a user-defined aggregation function.
 #'
 #' @param x A `SpatRaster` object with a time dimension.
-#' @param iteracation optional character to be print before computation. Usually,
+#' @param iteration optional character to be print before computation. Usually,
 #'  it is the name of the object on which the function is applied. This is useful
 #'  when the function is used inside an apply family function to keep track of the
 #'  iterations.
@@ -27,10 +27,10 @@
 #' r_monthly <- aggregate_frequency(r, target_freq = "%Y-%m", agg_fn = mean)
 
 aggregate_frequency <- function(x,
-                                iteracation = NULL,
+                                iteration = NULL,
                                 target_freq = "%Y-%m-%d",
                                 agg_fn = "mean") {
-    if (!is.null(iteracation)) cat("aggregating:", iteracation, "\n")
+    if (!is.null(iteration)) cat("aggregating:", iteration, "\n")
 
     hour <- terra::time(x)
     if (all(is.na(hour))) {

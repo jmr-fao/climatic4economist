@@ -13,6 +13,27 @@ Description: Contains functions for extracting weather data based on survey loca
 License: GPL-2
 Encoding: UTF-8
 LazyData: true
+Depends:
+    R (>= 4.2)
+Imports:
+    checkmate,
+    clock,
+    data.table,
+    dplyr (>= 1.1.0),
+    exactextractr,
+    furrr,
+    lubridate,
+    purrr,
+    raster,
+    rlang,
+    sf,
+    SPEI,
+    stringi,
+    stringr,
+    terra,
+    tibble,
+    tidyr,
+    tidyterra
 RoxygenNote: 7.3.3
 Roxygen: list(markdown = TRUE)
 URL: https://github.com/jmr-fao/climatic4economist

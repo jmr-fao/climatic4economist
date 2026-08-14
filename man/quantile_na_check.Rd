@@ -16,8 +16,9 @@ quantile_na_check(x, p, replace = 0)
 Defaults to \code{0}.}
 }
 \value{
-A numeric value representing the standard deviation of \code{x}, ignoring
-\code{NA} values. If all values in \code{x} are \code{NA}, it returns \code{replace}.
+A named numeric vector with the sample percentiles of \code{x} at the
+probabilities \code{p}, ignoring \code{NA} values. If all values in \code{x} are \code{NA},
+every element is \code{replace}.
 }
 \description{
 This function calculates sample percentiles corresponding to the given

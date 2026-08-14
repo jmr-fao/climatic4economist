@@ -57,9 +57,6 @@ ave_dist_2shp <- function(country_ext, target, shape_input, UTM, res_raster, nam
     }
   }
 
-  # message("All inputs are valid sf data frames in WGS84 coordinate system.")
-  # return(TRUE)
-
   if (missing(UTM)) {
     print("Argument 'UTM' is missing. Defining Global default EPSG:3857 (Web Mercator)")
     utm_country<-"+proj=merc +datum=WGS84 +units=m"

@@ -6,7 +6,7 @@
 \usage{
 extr_day_index(
   df,
-  iteracation = NULL,
+  iteration = NULL,
   interview,
   id,
   interval,
@@ -17,7 +17,7 @@ extr_day_index(
 \arguments{
 \item{df}{A data frame containing daily extreme values.}
 
-\item{iteracation}{optional character to be print before computation. Usually,
+\item{iteration}{optional character to be print before computation. Usually,
 it is the name of the object on which the function is applied. This is useful
 when the function is used inside an apply family function to keep track of the
 iterations.}
@@ -31,6 +31,10 @@ iterations.}
 
 \item{n_lags}{Integer. The maximum lag (in units of \code{interval}) to consider.
 Default is 0.}
+
+\item{extra_col}{<\code{\link[dplyr:dplyr_tidy_select]{tidy-select}}> Optional columns
+carried through unchanged. They must be constant within each \code{id}/\code{lag}
+group, since they are reduced with \code{unique()}.}
 }
 \value{
 A data frame with:

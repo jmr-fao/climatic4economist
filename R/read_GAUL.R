@@ -6,11 +6,13 @@
 #' and renaming columns.
 #' The data are obtained from [GAUL](https://data.apps.fao.org/catalog/organization/administrative-boundaries-fao)
 #'
-#' @param path_to_data A character string specifying the path where the country folders
+#' @param path_to_files A character string specifying the path where the country folders
 #'        containing GeoJSON administrative division files are stored.
 #' @param iso A character vector with one or more ISO 3-letter country codes (e.g., `"KEN"`, `"UGA"`).
 #' @param lvl An integer specifying the desired level of administrative division to return:
 #'        `1` for ADM1, or `2` for ADM2 (default).
+#' @param file_format A character string with the file extension of the boundary
+#'        files (default is `"geojson"`).
 #'
 #' @return A named list of `SpatVector` objects, each corresponding to one country.
 #'         - If `lvl = 1`, the function returns ADM1 polygons with columns: `adm_div_1`, `iso`, `lvl`.
@@ -35,7 +37,7 @@
 #' @examples
 #' \dontrun{
 #' path <- "path/to/admin_data"
-#' read_GAUL(path_to_data = path, iso = c("KEN", "UGA"), lvl = 2)
+#' read_GAUL(path_to_files = path, iso = c("KEN", "UGA"), lvl = 2)
 #' }
 
 read_GAUL <- function(path_to_files, iso, lvl = 2, file_format = "geojson") {

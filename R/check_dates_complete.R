@@ -33,7 +33,7 @@ check_dates_complete <- function(dates, freq = c("year", "month", "day"), return
 
     # year check. ----
     if ("year" %in% freq) {
-        years <- sort(unique(year(dates)))
+        years <- sort(unique(lubridate::year(dates)))
         min_year <- min(years)
         max_year <- max(years)
         year_check <- all(seq(min_year, max_year) %in% years)
@@ -53,7 +53,7 @@ check_dates_complete <- function(dates, freq = c("year", "month", "day"), return
             dplyr::summarise(n_month = dplyr::n_distinct(month),
                              n_day   = dplyr::n_distinct(date),
                              .groups = "drop") |>
-            dplyr::mutate(is_leap = leap_year(year),
+            dplyr::mutate(is_leap = lubridate::leap_year(year),
                           flag_month = n_month != 12,
                           flag_day   = !((n_day == 365) | (n_day == 366 & is_leap))) |>
             dplyr::filter(flag_month | flag_day)
@@ -63,7 +63,7 @@ check_dates_complete <- function(dates, freq = c("year", "month", "day"), return
         if (return_missing && nrow(month_summary) > 0) {
             missing_months <- lapply(month_summary$year,
                                      \(y) setdiff(1:12,
-                                                  lubridate::month(dates[year(dates) == y])))
+                                                  lubridate::month(dates[lubridate::year(dates) == y])))
             names(missing_months) <- month_summary$year
             out$missing_months <- missing_months
         }
@@ -77,7 +77,7 @@ check_dates_complete <- function(dates, freq = c("year", "month", "day"), return
             dplyr::group_by(year, month) |>
             dplyr::summarise(n_day = dplyr::n_distinct(date),
                              .groups = "drop") |>
-            dplyr::mutate(expected_days = lubridate::days_in_month(make_date(year, month, 1)),
+            dplyr::mutate(expected_days = lubridate::days_in_month(lubridate::make_date(year, month, 1)),
                           flag_day = n_day != expected_days) |>
             dplyr::filter(flag_day)
 

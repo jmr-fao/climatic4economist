@@ -1,4 +1,4 @@
-' Split a Raster into Smaller Tiles
+#' Split a Raster into Smaller Tiles
 #'
 #' This function divides a `SpatRaster` object into a grid of smaller tiles,
 #' optionally adding overlap between adjacent tiles. It is useful for parallel

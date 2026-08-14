@@ -6,7 +6,7 @@
 \usage{
 extr_spell_index(
   df,
-  iteracation = NULL,
+  iteration = NULL,
   interview,
   id,
   interval,
@@ -18,7 +18,7 @@ extr_spell_index(
 \item{df}{A dataframe containing an interview date, event dates, and
 spell-related variables.}
 
-\item{iteracation}{optional character to be print before computation. Usually,
+\item{iteration}{optional character to be print before computation. Usually,
 it is the name of the object on which the function is applied. This is useful
 when the function is used inside an apply family function to keep track of the
 iterations.}
@@ -33,6 +33,10 @@ for 12 months).}
 
 \item{n_lags}{(Optional) The number of lag periods to consider. Default is 0
 (only the defined interval).}
+
+\item{extra_col}{<\code{\link[dplyr:dplyr_tidy_select]{tidy-select}}> Optional columns
+carried through unchanged. They must be constant within each \code{id}/\code{lag}
+group, since they are reduced with \code{unique()}.}
 }
 \value{
 A dataframe summarizing spell-related variables for each ID and lag

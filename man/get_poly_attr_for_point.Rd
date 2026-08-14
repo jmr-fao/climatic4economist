@@ -7,7 +7,7 @@
 get_poly_attr_for_point(
   point,
   poly,
-  iteraction = NULL,
+  iteration = NULL,
   geom = c("lon", "lat"),
   crs = "epsg:4326",
   outside = TRUE
@@ -19,13 +19,16 @@ columns for longitude and latitude specified in \code{geom}.}
 
 \item{poly}{A \code{SpatVector} object representing polygons with attributes to extract.}
 
-\item{iteraction}{Optional. A label (e.g., an ID or name) printed during execution to indicate
+\item{iteration}{Optional. A label (e.g., an ID or name) printed during execution to indicate
 which subset is being processed. Useful when running the function in a loop or batch.}
 
 \item{geom}{A character vector of length two specifying the names of the longitude and
 latitude columns (default is \code{c("lon", "lat")}).}
 
 \item{crs}{A character string specifying the CRS of the input coordinates (default is \code{"epsg:4326"}).}
+
+\item{outside}{Logical. If \code{TRUE} (default), points falling outside every polygon
+are assigned the attributes of the nearest polygon. If \code{FALSE}, they are dropped.}
 }
 \value{
 A tibble containing the original point data and the corresponding polygon attributes.

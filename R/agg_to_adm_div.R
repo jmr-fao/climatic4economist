@@ -6,21 +6,26 @@
 #'
 #' @param df A data frame containing extreme event indicators, administrative division IDs,
 #'   and coverage fractions.
+#' @param match_col A regular expression selecting the indicator columns to
+#'   aggregate, for example `"^day|^spell"`.
+#' @param extra_col <[`tidy-select`][dplyr::dplyr_tidy_select]> Optional columns
+#'   carried through unchanged. They must be constant within each group, since
+#'   they are reduced with `unique()`.
 #'
-#' @return A data frame grouped by administrative division (`ID_adm_div`) and `date`,
-#'   with aggregated values for daily (`^day`) and spell (`^spell`) indicators.
+#' @return A data frame grouped by administrative division (`ID_adm_div`) and `lag`,
+#'   with values aggregated by a weighted mean using `coverage_fraction` as weights.
 #'
 #' @export
 #'
 #' @examples
 #' df <- data.frame(
 #'   ID_adm_div = c(1, 1, 2, 2),
-#'   date = as.Date(c("2024-01-01", "2024-01-01", "2024-01-02", "2024-01-02")),
+#'   lag = c(0, 0, 0, 0),
 #'   day_abv_90p = c(5, 10, 2, 8),
 #'   spell_abv_90p = c(2, 3, 1, 2),
 #'   coverage_fraction = c(0.6, 0.4, 0.7, 0.3)
 #' )
-#' agg_to_adm_div(df)
+#' agg_to_adm_div(df, match_col = "^day|^spell")
 #'
 
 agg_to_adm_div <- function(df, match_col, extra_col = NULL) {

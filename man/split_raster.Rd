@@ -2,9 +2,7 @@
 % Please edit documentation in R/split_raster.R
 \name{split_raster}
 \alias{split_raster}
-\title{This function divides a \code{SpatRaster} object into a grid of smaller tiles,
-optionally adding overlap between adjacent tiles. It is useful for parallel
-processing, memory management, or spatial subsetting of large rasters.}
+\title{Split a Raster into Smaller Tiles}
 \usage{
 split_raster(rast, n_x = 10, n_y = 10, overlap = 0)
 }

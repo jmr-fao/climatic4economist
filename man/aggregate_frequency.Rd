@@ -6,7 +6,7 @@
 \usage{
 aggregate_frequency(
   x,
-  iteracation = NULL,
+  iteration = NULL,
   target_freq = "\%Y-\%m-\%d",
   agg_fn = "mean"
 )
@@ -14,7 +14,7 @@ aggregate_frequency(
 \arguments{
 \item{x}{A \code{SpatRaster} object with a time dimension.}
 
-\item{iteracation}{optional character to be print before computation. Usually,
+\item{iteration}{optional character to be print before computation. Usually,
 it is the name of the object on which the function is applied. This is useful
 when the function is used inside an apply family function to keep track of the
 iterations.}

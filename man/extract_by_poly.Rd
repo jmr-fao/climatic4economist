@@ -38,7 +38,7 @@ accounts for partial pixel coverage. For smaller datasets, it uses \code{terra}.
 \examples{
 r <- terra::rast(nrows=10, ncols=10)
 terra::values(r) <- runif(ncell(r))
-p <- vterra::ect(matrix(c(0,0,1,0,1,1,0,1,0,0), ncol=2, byrow=TRUE), type="polygons")
+p <- terra::vect(matrix(c(0,0,1,0,1,1,0,1,0,0), ncol=2, byrow=TRUE), type="polygons")
 
 extract_by_poly(r, p)
 }

@@ -4,27 +4,22 @@
 \alias{crop_with_buffer}
 \title{Crop a Raster with a Buffer around a Vector Layer}
 \usage{
-crop_with_buffer(
-  raster,
-  vector,
-  iteracation = NULL,
-  buffer = 0,
-  buffer_unit = "native",
-  ...
-)
+crop_with_buffer(raster, vector, iteration = NULL, buffer = 0, ...)
 }
 \arguments{
 \item{raster}{A \code{SpatRaster} object to be cropped.}
 
 \item{vector}{A \code{SpatVector} object used to define the cropping extent.}
 
-\item{iteracation}{optional character to be print before computation. Usually,
+\item{iteration}{optional character to be print before computation. Usually,
 it is the name of the object on which the function is applied. This is useful
 when the function is used inside an apply family function to keep track of the
 iterations.}
 
-\item{buffer}{A numeric value specifying the buffer (in map units) to expand the cropping extent.
-Default is 0 (no buffer).}
+\item{buffer}{A numeric value specifying the buffer used to expand the cropping
+extent, expressed in the map units of \code{vector}. For a lon-lat layer the
+buffer is in degrees; for a projected layer it is in the units of that
+projection, typically meters. Default is 0 (no buffer).}
 
 \item{...}{Additional arguments passed to \code{\link[terra:crop]{terra::crop()}}.}
 }
@@ -38,6 +33,10 @@ optionally adding a buffer around the vector extent before cropping.
 \details{
 The function computes the bounding box of the input vector and expands it in all directions
 by the buffer amount. The raster is then cropped to this expanded extent.
+
+No reprojection is performed, so \code{buffer} is always interpreted in the map
+units of the data. To buffer by a metric distance on a lon-lat layer, project
+\code{raster} and \code{vector} to a suitable CRS first, for example with \code{\link[=get_utm_crs]{get_utm_crs()}}.
 }
 \examples{
 \dontrun{

@@ -3,7 +3,7 @@
 #' The functions uses the variable `ID` as the key matching variable.
 #'
 #' @param survey A data frame. It must contains an `ID` for the merging.
-#' @param iteracation optional character to be print before computation. Usually,
+#' @param iteration optional character to be print before computation. Usually,
 #'  it is the name of the object on which the function is applied. This is useful
 #'  when the function is used inside an apply family function to keep track of the
 #'  iterations.
@@ -22,8 +22,8 @@
 
 merge_with_survey <- function(survey,
                               new_value,
-                              iteracation = NULL) {
-    if (!is.null(iteracation)) cat("merging with survey:", iteracation, "\n")
+                              iteration = NULL) {
+    if (!is.null(iteration)) cat("merging with survey:", iteration, "\n")
 
     survey |>
         dplyr::select(-dplyr::matches("[0-9]{4}.[0-9]{2}")) |>

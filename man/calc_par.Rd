@@ -28,8 +28,9 @@ across periods. Defaults to \code{NULL}.}
 }
 \value{
 A tibble with one row per spatial unit and columns containing the
-aggregated statistics defined in \code{pars}. Output column names follow
-the pattern:
+aggregated statistics defined in \code{pars}. Output column names are taken from
+the names of \code{pars}, optionally wrapped by \code{prefix} and \code{suffix} as
+\code{"<prefix>_<name>_<suffix>"}.
 }
 \description{
 Computes summary statistics for spatial units from time-indexed columns.

@@ -21,10 +21,6 @@
 #' georef_coord(survey, crs = "epsg:4326")
 
 georef_coord <- function(df, geom, crs) {
-    # defuse_to_characther <- function(df, var1, var2) {
-    #     c(rlang::as_name(rlang::enquo(var1)),
-    #       rlang::as_name(rlang::enquo(var2)))
-    # }
     df |>
         dplyr::distinct(ID, dplyr::pick({{geom}})) |>
         terra::vect(crs = crs, geom = geom)

@@ -18,6 +18,8 @@
 #' created as ave_den_NAME with name_density="NAME"
 #'
 #' @return A \link[base]{data.frame}, with the average density variable calculated for each `ID`
+#'
+#' @export
 
 ave_point_density_2shp <- function(country_ext,target,shape_input,res_raster,name_density) {
 

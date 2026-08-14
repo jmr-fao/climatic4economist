@@ -9,7 +9,7 @@
 #'   observation in time.
 #' @param time_scale an integer, representing the time scale at which the SPEI
 #'  will be computed.
-#' @param iteracation optional character to be print before computation. Usually,
+#' @param iteration optional character to be print before computation. Usually,
 #'  it is the name of the object on which the function is applied. This is useful
 #'  when the function is used inside an apply family function to keep track of the
 #'  iterations.
@@ -23,9 +23,9 @@
 #' @examples
 #' compute_spei(coord, time_scale = 1)
 #'
-compute_spei <- function(df, time_scale, iteracation = NULL) {
-    if (!is.null(iteracation)) {
-        cat("Computing SPEI ", time_scale, ": ", iteracation, "\n", sep = "")}
+compute_spei <- function(df, time_scale, iteration = NULL) {
+    if (!is.null(iteration)) {
+        cat("Computing SPEI ", time_scale, ": ", iteration, "\n", sep = "")}
     df |>
         dplyr::select(
             dplyr::any_of(c("ID", "ID_adm_div", "x_cell", "y_cell", "coverage_fraction")),

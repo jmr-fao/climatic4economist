@@ -6,7 +6,7 @@
 #' thresholds.
 #'
 #' @param df A dataframe containing an ID column and date-based columns.
-#' @param iteracation optional character to be print before computation. Usually,
+#' @param iteration optional character to be print before computation. Usually,
 #'  it is the name of the object on which the function is applied. This is useful
 #'  when the function is used inside an apply family function to keep track of the
 #'  iterations.
@@ -36,12 +36,12 @@
 #' @import data.table
 
 find_extr_rel_day <- function(df,
-                              iteracation = NULL,
+                              iteration = NULL,
                               u_thresh = NULL,
                               l_thresh = NULL,
                               unit = "unit") {
 
-    if (!is.null(iteracation)) cat("findig extreme day:", iteracation, "\n")
+    if (!is.null(iteration)) cat("findig extreme day:", iteration, "\n")
 
     df_long <- df |>
         dplyr::select(ID, dplyr::matches("[0-9]{4}")) |>
@@ -72,18 +72,8 @@ find_extr_rel_day <- function(df,
                     .cols  = dplyr::matches("^.{1,3}_[0-9]?[0-9]p$"),
                     .fns   = ~ dplyr::if_else(value > .x, value - .x, 0),
                     .names = "unit_abv_{.col}")
-                # dplyr::across(
-                #     .cols  = dplyr::matches("^.{1,3}_[0-9]{2}p$"),
-                #     .fns   = ~ value > max(.x),
-                #     .names = "day_abv_max_{.col}"),
-                # dplyr::across(
-                #     .cols  = dplyr::matches("^.{1,3}_[0-9]?[0-9]p$"),
-                #     .fns   = ~ dplyr::if_else(value > max(.x), value - max(.x), 0),
-                #     .names = "unit_abv_max_{.col}")
                 ) |>
             dplyr::rename_with(
-                # .cols = dplyr::matches("^day_abv|^unit_abv"),
-                # .fn = ~ gsub("(.*abv_m?a?x?_?)(.*)_([0-9]?[0-9]p$)", "\\1\\3", .x)
                 .cols = dplyr::matches("_day_"),
                 .fn = ~ gsub("_day_", "_", .x)
                 ) |>
@@ -110,18 +100,8 @@ find_extr_rel_day <- function(df,
                     .cols  = dplyr::matches("^.{1,3}_[0-9]?[0-9]p$"),
                     .fns   = ~ dplyr::if_else(value < .x, .x - value, 0),
                     .names = "unit_blw_{.col}")
-                # dplyr::across(
-                #     .cols  = dplyr::matches("^.{1,3}_[0-9]?[0-9]p$"),
-                #     .fns   = ~ value < min(.x),
-                #     .names = "day_blw_min_{.col}"),
-                # dplyr::across(
-                #     .cols  = dplyr::matches("^.{1,3}_[0-9]?[0-9]p$"),
-                #     .fns   = ~ dplyr::if_else(value < min(.x), min(.x) - value, 0),
-                #     .names = "unit_blw_min_{.col}")
                 ) |>
             dplyr::rename_with(
-                # .cols = dplyr::matches("^day_blw|^unit_blw"),
-                # .fn = ~ gsub("(.*blw_m?i?n?_?)(.*)_([0-9]?[0-9]p$)", "\\1\\3", .x)
                 .cols = dplyr::matches("_day_"),
                 .fn = ~ gsub("_day_", "_", .x)
                 ) |>
@@ -136,7 +116,6 @@ find_extr_rel_day <- function(df,
         purrr::reduce(dplyr::full_join, by = c("ID", "date")) |>
         dplyr::select(-month) |>
         dplyr::mutate(date = clock::date_parse(as.character(date))) |>
-        #dplyr::rename({{unit}} := value) |>
         dplyr::rename_with(~gsub("unit", unit, .x)) |>
         dplyr::as_tibble()
 }

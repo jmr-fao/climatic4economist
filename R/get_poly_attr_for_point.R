@@ -8,11 +8,13 @@
 #' @param point A data frame or `SpatVector` of point features. If a data frame, it must contain
 #'        columns for longitude and latitude specified in `geom`.
 #' @param poly A `SpatVector` object representing polygons with attributes to extract.
-#' @param iteraction Optional. A label (e.g., an ID or name) printed during execution to indicate
+#' @param iteration Optional. A label (e.g., an ID or name) printed during execution to indicate
 #'        which subset is being processed. Useful when running the function in a loop or batch.
 #' @param geom A character vector of length two specifying the names of the longitude and
 #'        latitude columns (default is `c("lon", "lat")`).
 #' @param crs A character string specifying the CRS of the input coordinates (default is `"epsg:4326"`).
+#' @param outside Logical. If `TRUE` (default), points falling outside every polygon
+#'        are assigned the attributes of the nearest polygon. If `FALSE`, they are dropped.
 #'
 #' @return A tibble containing the original point data and the corresponding polygon attributes.
 #'         For points outside all polygons, attributes are taken from the nearest polygon.
@@ -25,11 +27,11 @@
 
 get_poly_attr_for_point <- function(point,
                                     poly,
-                                    iteraction = NULL,
+                                    iteration = NULL,
                                     geom = c("lon", "lat"),
                                     crs = "epsg:4326",
                                     outside = TRUE) {
-    if (!is.null(iteraction)) cat("processing:", iteraction, "\n")
+    if (!is.null(iteration)) cat("processing:", iteration, "\n")
     if (!inherits(point, "SpatVector")) {
         point <- terra::vect(point, geom = geom, crs = crs, keepgeom = TRUE)
     } else {

@@ -6,7 +6,7 @@
 \usage{
 find_extr_rel_day(
   df,
-  iteracation = NULL,
+  iteration = NULL,
   u_thresh = NULL,
   l_thresh = NULL,
   unit = "unit"
@@ -15,7 +15,7 @@ find_extr_rel_day(
 \arguments{
 \item{df}{A dataframe containing an ID column and date-based columns.}
 
-\item{iteracation}{optional character to be print before computation. Usually,
+\item{iteration}{optional character to be print before computation. Usually,
 it is the name of the object on which the function is applied. This is useful
 when the function is used inside an apply family function to keep track of the
 iterations.}

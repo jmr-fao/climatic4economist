@@ -1,7 +1,10 @@
-#' Compute the mode of a vector
+#' Compute the statistical mode of a vector
 #'
 #' Returns the most frequent value in a vector, optionally handling ties in
 #' different ways. Missing values are ignored.
+#'
+#' The function is named `calc_mode()` rather than `mode()` so that it does not
+#' mask [base::mode()], which reports the storage type of an object.
 #'
 #' @param x A vector.
 #' @param ties Character string specifying how ties should be handled.
@@ -28,16 +31,16 @@
 #' `x` is returned.
 #'
 #' @examples
-#' mode(c(1, 2, 2, 3))
+#' calc_mode(c(1, 2, 2, 3))
 #'
-#' mode(c(1, 1, 2, 2), ties = "all")
+#' calc_mode(c(1, 1, 2, 2), ties = "all")
 #'
-#' mode(c("a", "b", "a"))
+#' calc_mode(c("a", "b", "a"))
 #'
-#' mode(c(NA, 1, 1, 2))
+#' calc_mode(c(NA, 1, 1, 2))
 #'
 #' @export
-mode <- function(x, ties = c("first", "all", "NA", "error")) {
+calc_mode <- function(x, ties = c("first", "all", "NA", "error")) {
     ties <- match.arg(ties)
 
     x <- x[!is.na(x)]
