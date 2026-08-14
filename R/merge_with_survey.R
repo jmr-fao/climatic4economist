@@ -27,6 +27,7 @@ merge_with_survey <- function(survey,
 
     survey |>
         dplyr::select(-dplyr::matches("[0-9]{4}.[0-9]{2}")) |>
-        dplyr::full_join(new_value, by = "ID", relationship = "many-to-many") |>
+        dplyr::full_join(new_value, by = dplyr::join_by(ID),
+                         relationship = "many-to-many") |>
         tibble::as_tibble()
 }

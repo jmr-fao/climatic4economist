@@ -97,7 +97,7 @@ compare_adm_div <- function(x, y, level = 1) {
     dplyr::full_join(
         x_sets,
         y_sets,
-        by = "parent",
+        by = dplyr::join_by(parent),
         suffix = c("_x", "_y")
     ) |>
         tidyr::replace_na(

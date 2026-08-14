@@ -77,7 +77,7 @@ find_extr_spell_rel <- function(spell, threshold) {
     spell <- spell |>
         dplyr::mutate(month = month_label(date),
                       .after = date)
-    df_full <- dplyr::full_join(spell, threshold, by = c("ID", "month"))
+    df_full <- dplyr::full_join(spell, threshold, by = dplyr::join_by(ID, month))
 
     purrr::map(c(l_perc_thresh_values, u_perc_thresh_values),
                \(x) df_full |>
@@ -96,5 +96,5 @@ find_extr_spell_rel <- function(spell, threshold) {
                            .fns = ~dplyr::if_else(spell < .x | is.na(spell),
                                                   NA_integer_, spell - .x))) |>
                    dplyr::select(ID, date, month, dplyr::matches("[0-9]{2}p$"))) |>
-        purrr::reduce(dplyr::full_join, c("ID", "date", "month"))
+        purrr::reduce(dplyr::full_join, by = dplyr::join_by(ID, date, month))
 }

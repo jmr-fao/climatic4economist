@@ -63,7 +63,7 @@ find_extr_rel_day <- function(df,
         abv <- u_thresh |>
             dplyr::select(ID, month, dplyr::matches("_[0-9]?[0-9]p$")) |>
             dplyr::distinct() |>
-            dplyr::full_join(df_long, by = c("ID", "month"),
+            dplyr::full_join(df_long, by = dplyr::join_by(ID, month),
                              relationship = "one-to-many") |>
             dplyr::mutate(
                 dplyr::across(
@@ -91,7 +91,7 @@ find_extr_rel_day <- function(df,
         blw <- l_thresh |>
             dplyr::select(ID, month, dplyr::matches("_[0-9]?[0-9]p$")) |>
             dplyr::distinct() |>
-            dplyr::full_join(df_long, by = c("ID", "month"),
+            dplyr::full_join(df_long, by = dplyr::join_by(ID, month),
                              relationship = "one-to-many") |>
             dplyr::mutate(
                 dplyr::across(
@@ -117,7 +117,7 @@ find_extr_rel_day <- function(df,
 
     list(df_long, abv, blw) |>
         purrr::keep(is.data.frame) |>
-        purrr::reduce(dplyr::full_join, by = c("ID", "date")) |>
+        purrr::reduce(dplyr::full_join, by = dplyr::join_by(ID, date)) |>
         dplyr::select(-month) |>
         dplyr::rename_with(~gsub("unit", unit, .x)) |>
         dplyr::as_tibble()
