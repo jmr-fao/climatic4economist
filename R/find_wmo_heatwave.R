@@ -48,7 +48,7 @@ find_wmo_heatwave <- function(df, excess = 5L, min_spell = 2L) {
         data.table::melt(id.vars = "ID",
                          variable.name = "date",
                          value.name = "value")
-    df_long[, month := substr(date, 6, 7), ]
+    df_long[, month := month_label(date), ]
     df_long[, avg := mean(value), by = .(ID, month)]
     df_long[, diff := (value - avg) >= excess]
     df_long[, spell_wmo := compute_spell(diff, min_spell)]

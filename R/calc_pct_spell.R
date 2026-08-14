@@ -36,7 +36,7 @@
 
 calc_pct_spell <- function(extr_day, p, min_spell = 2) {
     find_spell(extr_day, min_spell = min_spell) |>
-        dplyr::mutate(month = substr(date, 6, 7),
+        dplyr::mutate(month = month_label(date),
                       .after = date) |>
         dplyr::group_by(ID, month) |>
         dplyr::reframe(

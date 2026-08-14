@@ -71,7 +71,7 @@ find_extr_spell_rel <- function(spell, threshold) {
     }
 
     spell <- spell |>
-        dplyr::mutate(month = substr(date, 6, 7),
+        dplyr::mutate(month = month_label(date),
                       .after = date)
     df_full <- dplyr::full_join(spell, threshold, by = c("ID", "month"))
 

@@ -53,7 +53,7 @@ find_extr_rel_day <- function(df,
                          value.name = "value") |>
         data.table::setorder(ID, date)
 
-    df_long[, month := substr(date, 6, 7), ]
+    df_long[, month := month_label(date), ]
 
     if (!is.null(u_thresh)) {
         abv <- u_thresh |>

@@ -84,6 +84,30 @@ test_that("read_geoBoundaries returns a named list for several countries", {
     expect_equal(out$UGA$iso[1], "UGA")
 })
 
+test_that("ID_adm_div restarts at 1 for each country", {
+    # the identifier is numbered within a country, not across the whole batch,
+    # so two countries of different sizes must each start from "1"
+    root <- withr::local_tempdir()
+    make_boundary_tree(root, "KEN", n_adm1 = 2)
+    make_boundary_tree(root, "UGA", n_adm1 = 4)
+
+    out <- read_geoBoundaries(root, iso = c("KEN", "UGA"), lvl = 1)
+
+    expect_equal(out$KEN$ID_adm_div, c("1", "2"))
+    expect_equal(out$UGA$ID_adm_div, c("1", "2", "3", "4"))
+})
+
+test_that("ID_adm_div restarts at 1 for each country at ADM2 as well", {
+    root <- withr::local_tempdir()
+    make_boundary_tree(root, "KEN", n_adm1 = 2, n_adm2 = 4)
+    make_boundary_tree(root, "UGA", n_adm1 = 1, n_adm2 = 2)
+
+    out <- read_geoBoundaries(root, iso = c("KEN", "UGA"), lvl = 2)
+
+    expect_equal(out$KEN$ID_adm_div, as.character(1:4))
+    expect_equal(out$UGA$ID_adm_div, as.character(1:2))
+})
+
 test_that("read_geoBoundaries unwraps a single country from the list", {
     root <- withr::local_tempdir()
     make_boundary_tree(root, "KEN", n_adm1 = 2)

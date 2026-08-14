@@ -51,7 +51,7 @@ calc_pct_day <- function(df,
                          variable.name = "date",
                          value.name = "value")
 
-    df_long[, month := substr(date, 6, 7), ]
+    df_long[, month := month_label(date), ]
 
     if (!is.null(l_thresh)) df_long[value < l_thresh, value := NA_real_]
     if (!is.null(u_thresh)) df_long[value > u_thresh, value := NA_real_]
