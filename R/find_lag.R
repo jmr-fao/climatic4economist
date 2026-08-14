@@ -84,24 +84,27 @@ find_lag <- function(start,
     start <- lubridate::as_date(start)
     end   <- lubridate::as_date(end)
 
-    if (calendar) {
+    # Only years and months have a calendar-dependent length. A week is always
+    # seven days and a day always one, so those go down the cheap path whatever
+    # `calendar` says, which is also what the two modes are documented to do.
+    if (calendar && unit %in% c("year", "month")) {
         # Periods are calendar-aware: they respect real month lengths and leap
-        # years, so a "month" is whatever the calendar says it is. This needs a
-        # full Interval, which carries a start instant alongside each span.
+        # years. This needs a full Interval, which carries a start instant
+        # alongside each span, and has to walk the calendar per element.
         step <- lubridate::period(width, units = unit)
-        lubridate::interval(end, start) %/% step
-    } else {
-        # Durations are fixed spans of seconds, so a "year" is always 365.25
-        # days and a "month" always 30.4375 days. A plain elapsed time is
-        # enough here, and is both smaller and far cheaper than an Interval.
-        step <- switch(
-            unit,
-            "year"  = lubridate::dyears(width),
-            "month" = lubridate::dmonths(width),
-            "week"  = lubridate::dweeks(width),
-            "day"   = lubridate::ddays(width)
-        )
-        lubridate::as.duration(start - end) %/% step
+        return(lubridate::interval(end, start) %/% step)
     }
+
+    # Durations are fixed spans of seconds, so a "year" is always 365.25 days
+    # and a "month" always 30.4375 days. Dividing an elapsed time by one is a
+    # single vectorised operation.
+    step <- switch(
+        unit,
+        "year"  = lubridate::dyears(width),
+        "month" = lubridate::dmonths(width),
+        "week"  = lubridate::dweeks(width),
+        "day"   = lubridate::ddays(width)
+    )
+    lubridate::as.duration(start - end) %/% step
 }
 
