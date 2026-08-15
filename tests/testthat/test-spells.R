@@ -59,3 +59,40 @@ test_that("find_wmo_heatwave finds nothing in a flat series", {
     out <- find_wmo_heatwave(df, excess = 5, min_spell = 2)
     expect_true(all(is.na(out$spell_wmo)))
 })
+
+test_that("WMO spells do not run across unit boundaries", {
+    # Unit 1 is hot on the last two days, unit 2 on the first two. The rows are
+    # sorted by unit then date, so an ungrouped compute_spell() sees one run of
+    # four and credits it all to unit 2.
+    df <- data.frame(
+        ID = c("1", "2"),
+        `2022-01-01` = c(0, 50), `2022-01-02` = c(0, 50),
+        `2022-01-03` = c(50, 0), `2022-01-04` = c(50, 0),
+        check.names = FALSE
+    )
+
+    out <- find_wmo_heatwave(df, excess = 1, min_spell = 2)
+
+    expect_equal(sum(!is.na(out$spell_wmo)), 2L)
+    expect_equal(unique(out$spell_wmo[!is.na(out$spell_wmo)]), 2)
+    # one spell per unit, each of length two
+    expect_equal(out$spell_wmo[out$ID == "1" & out$date == as.Date("2022-01-04")], 2)
+    expect_equal(out$spell_wmo[out$ID == "2" & out$date == as.Date("2022-01-02")], 2)
+})
+
+test_that("a spell is unaffected by how many other units are present", {
+    one <- data.frame(ID = "1",
+                      `2022-01-01` = 0, `2022-01-02` = 0,
+                      `2022-01-03` = 50, `2022-01-04` = 50,
+                      check.names = FALSE)
+    two <- rbind(one, data.frame(ID = "2",
+                                 `2022-01-01` = 50, `2022-01-02` = 50,
+                                 `2022-01-03` = 0, `2022-01-04` = 0,
+                                 check.names = FALSE))
+
+    alone <- find_wmo_heatwave(one, excess = 1, min_spell = 2)
+    together <- find_wmo_heatwave(two, excess = 1, min_spell = 2)
+    together <- together[together$ID == "1", ]
+
+    expect_equal(together$spell_wmo, alone$spell_wmo)
+})
