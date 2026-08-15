@@ -83,8 +83,8 @@ calc_par <- function(df, pars, prefix = NULL, suffix = NULL, agg_period = NULL,
 
     # Pivot to long format
     df_long <- df |>
-        dplyr::select(dplyr::any_of(id_vars), dplyr::matches("[0-9]{4}")) |>
-        tidyr::pivot_longer(cols = dplyr::matches("[0-9]{4}"),
+        dplyr::select(dplyr::any_of(id_vars), dplyr::matches(date_pattern())) |>
+        tidyr::pivot_longer(cols = dplyr::matches(date_pattern()),
                             names_to = "time_label",
                             values_to = "value")
 

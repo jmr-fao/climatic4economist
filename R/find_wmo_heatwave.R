@@ -47,11 +47,11 @@ find_wmo_heatwave <- function(df, excess = 5L, min_spell = 2L, id = NULL) {
     key <- resolve_key(df, id)
 
     df_long <- df |>
-        dplyr::select(dplyr::all_of(key), dplyr::matches("[0-9]{4}")) |>
+        dplyr::select(dplyr::all_of(key), dplyr::matches(date_pattern())) |>
         dplyr::distinct(dplyr::pick(dplyr::all_of(key)), .keep_all = TRUE) |>
-        # to_date() rewrites `_` and `.` and strips a leading X, which would
-        # mangle a key such as ID_adm_div; only the date columns need it
-        dplyr::rename_with(to_date, .cols = -dplyr::all_of(key)) |>
+        # rename by the same pattern the select used: to_date() rewrites `_`
+        # and `.`, so anything that is not a date column must never reach it
+        dplyr::rename_with(to_date, .cols = dplyr::matches(date_pattern())) |>
         data.table::as.data.table() |>
         data.table::melt(id.vars = key,
                          variable.name = "date",
@@ -63,7 +63,11 @@ find_wmo_heatwave <- function(df, excess = 5L, min_spell = 2L, id = NULL) {
     df_long[, month := month_label(date), ]
     df_long[, avg := mean(value), by = c(key, "month")]
     df_long[, diff := (value - avg) >= excess]
-    df_long[, spell_wmo := compute_spell(diff, min_spell)]
+    # compute_spell() walks the vector with rle() and lead(), so it has to run
+    # once per unit. Ungrouped, a run of hot days at the end of one unit's
+    # series joins the run at the start of the next, and the merged spell is
+    # attributed to whichever unit sorts second.
+    df_long[, spell_wmo := compute_spell(diff, min_spell), by = key]
     df_long |>
         dplyr::select(-c(month, avg, diff))
 }

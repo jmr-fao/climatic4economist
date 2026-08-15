@@ -50,11 +50,11 @@ calc_pct_day <- function(df,
     key <- resolve_key(df, id)
 
     df_long <- df |>
-        dplyr::select(dplyr::all_of(key), dplyr::matches("[0-9]{4}")) |>
+        dplyr::select(dplyr::all_of(key), dplyr::matches(date_pattern())) |>
         dplyr::distinct(dplyr::pick(dplyr::all_of(key)), .keep_all = TRUE) |>
-        # to_date() rewrites `_` and `.` and strips a leading X, which would
-        # mangle a key such as ID_adm_div; only the date columns need it
-        dplyr::rename_with(to_date, .cols = -dplyr::all_of(key)) |>
+        # rename by the same pattern the select used: to_date() rewrites `_`
+        # and `.`, so anything that is not a date column must never reach it
+        dplyr::rename_with(to_date, .cols = dplyr::matches(date_pattern())) |>
         data.table::as.data.table() |>
         data.table::melt(id.vars = key,
                          variable.name = "date",
