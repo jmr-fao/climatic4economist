@@ -28,6 +28,9 @@ A data frame with:
 \item \code{ID}, \code{date}, \code{value}, and optionally \code{month} from \code{extr_day}.
 \item Computed spell durations for both above-threshold and below-threshold events.
 }
+
+The rows are sorted by identifier then \code{date}, whatever order \code{extr_day}
+came in.
 }
 \description{
 This function identifies consecutive occurrences (spells) of extreme values

@@ -37,6 +37,59 @@ test_that("find_spell computes spells per ID without bleeding across groups", {
     expect_true(all(is.na(out$spell_abv_90p[out$ID == 2])))
 })
 
+test_that("find_spell lands each spell on the same date whatever the row order", {
+    # the spell columns are computed on a re-sorted copy and re-joined by
+    # position, so unsorted input used to pair them with the wrong rows
+    sorted <- data.frame(
+        ID = c("1", "1", "1", "2", "2", "2"),
+        date = rep(as.Date(c("2022-01-01", "2022-01-02", "2022-01-03")), 2),
+        value = c(1, 2, 3, 4, 5, 6),
+        day_abv_90p = c(TRUE, TRUE, FALSE, FALSE, TRUE, TRUE),
+        day_blw_10p = c(FALSE, TRUE, TRUE, TRUE, TRUE, FALSE)
+    )
+    shuffled <- sorted[c(3, 1, 2, 6, 4, 5), ]
+
+    from_sorted <- find_spell(sorted, min_spell = 2)
+    from_shuffled <- find_spell(shuffled, min_spell = 2)
+
+    expect_equal(from_shuffled$ID, from_sorted$ID)
+    expect_equal(from_shuffled$date, from_sorted$date)
+    expect_equal(from_shuffled$value, from_sorted$value)
+    expect_equal(from_shuffled$spell_abv_90p, from_sorted$spell_abv_90p)
+    expect_equal(from_shuffled$spell_blw_10p, from_sorted$spell_blw_10p)
+
+    # each unit has one spell of two per indicator, on the day the run ends
+    abv <- from_sorted[!is.na(from_sorted$spell_abv_90p), ]
+    blw <- from_sorted[!is.na(from_sorted$spell_blw_10p), ]
+    expect_equal(abv$date, as.Date(c("2022-01-02", "2022-01-03")))
+    expect_equal(blw$date, as.Date(c("2022-01-03", "2022-01-02")))
+    expect_true(all(abv$spell_abv_90p == 2L))
+    expect_true(all(blw$spell_blw_10p == 2L))
+})
+
+test_that("calc_pct_spell is unaffected by the order of the input rows", {
+    # the spell falls in January; the shuffle puts February first, which used to
+    # be enough to credit the spell to the wrong month
+    sorted <- data.frame(
+        ID = "1",
+        date = as.Date(c("2022-01-01", "2022-01-02", "2022-01-03",
+                         "2022-02-01", "2022-02-02", "2022-02-03")),
+        value = 1:6,
+        day_abv_90p = c(TRUE, TRUE, TRUE, FALSE, FALSE, FALSE)
+    )
+    shuffled <- sorted[c(4, 5, 6, 1, 2, 3), ]
+
+    out <- calc_pct_spell(sorted, p = 0.5, min_spell = 2)
+    jan <- month_label(as.Date("2022-01-01"))
+    feb <- month_label(as.Date("2022-02-01"))
+
+    expect_equal(calc_pct_spell(shuffled, p = 0.5, min_spell = 2), out)
+    # January holds the three-day spell; February has none and falls back to
+    # `min_spell`
+    expect_equal(out$spell_abv_90p_50p[out$month == jan], 3L)
+    expect_equal(out$spell_abv_90p_50p[out$month == feb], 2L)
+})
+
 test_that("find_wmo_heatwave flags days above the monthly mean by `excess`", {
     df <- data.frame(ID = 1,
                      `2000-01-01` = 20, `2000-01-02` = 20,

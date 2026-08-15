@@ -19,6 +19,9 @@
 #'   - `ID`, `date`, `value`, and optionally `month` from `extr_day`.
 #'   - Computed spell durations for both above-threshold and below-threshold events.
 #'
+#'   The rows are sorted by identifier then `date`, whatever order `extr_day`
+#'   came in.
+#'
 #' @export
 #'
 #' @examples
@@ -34,9 +37,14 @@
 find_spell <- function(extr_day, min_spell = 2, id = NULL) {
     key <- resolve_key(extr_day, id)
 
+    # spells depend on row order, and the three blocks below are re-assembled
+    # with bind_cols(), which pairs rows by position. Sort once here so every
+    # block walks the same order and the columns can only ever line up.
+    extr_day <- extr_day |>
+        dplyr::arrange(dplyr::pick(dplyr::all_of(key)), date)
+
     spell_abv <- extr_day |>
         dplyr::group_by(dplyr::pick(dplyr::all_of(key))) |>
-        dplyr::arrange(date, .by_group = TRUE) |>
         dplyr::transmute(
             dplyr::across(.cols = dplyr::matches("^day_abv_\\-?[0-9]{1,2}\\.?[0-9]?p?$"),
                           .fns = ~compute_spell(.x, threshold = min_spell))) |>
@@ -46,7 +54,6 @@ find_spell <- function(extr_day, min_spell = 2, id = NULL) {
 
     spell_blw <- extr_day |>
         dplyr::group_by(dplyr::pick(dplyr::all_of(key))) |>
-        dplyr::arrange(date, .by_group = TRUE) |>
         dplyr::transmute(
             dplyr::across(.cols = dplyr::matches("^day_blw_\\-?[0-9]{1,2}\\.?[0-9]?p?$"),
                           .fns = ~compute_spell(.x, threshold = min_spell))) |>
