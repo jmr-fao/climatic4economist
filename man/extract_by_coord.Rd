@@ -4,7 +4,7 @@
 \alias{extract_by_coord}
 \title{Extract values from a SpatRaster}
 \usage{
-extract_by_coord(raster, coord, iteration = NULL, ...)
+extract_by_coord(raster, coord, iteration = NULL, id = NULL, ...)
 }
 \arguments{
 \item{raster}{A data frame. It must contains two variables named \code{lat} and
@@ -18,6 +18,10 @@ See \link[terra]{crs}.}
 it is the name of the object on which the function is applied. This is useful
 when the function is used inside an apply family function to keep track of the
 iterations.}
+
+\item{id}{Optional character string naming the column that identifies the
+units. When \code{NULL}, \code{ID} is used, or \code{ID_adm_div} when that is the only
+one present.}
 
 \item{...}{additional arguments to pass to \link[terra:extract]{terra::extract}.}
 }

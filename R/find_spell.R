@@ -5,11 +5,14 @@
 #' and below-threshold spells.
 #'
 #' @param extr_day A data frame containing daily extreme values, with columns:
-#'   - `ID`: Unique identifier for each entity.
+#'   - the identifier column: unique identifier for each entity.
 #'   - `date`: The date of observation.
 #'   - `value`: The observed value.
 #'   - `day_abv_*`: Binary indicators for exceeding upper thresholds.
 #'   - `day_blw_*`: Binary indicators for falling below lower thresholds.
+#' @param id Optional character string naming the column that identifies the
+#'   units. When `NULL`, `ID` is used, or `ID_adm_div` when that is the only
+#'   one present.
 #' @param min_spell Integer. The minimum number of consecutive days required to form a spell. Default is 2.
 #'
 #' @return A data frame with:
@@ -28,29 +31,31 @@
 #' )
 #' find_spell(df, min_spell = 2)
 
-find_spell <- function(extr_day, min_spell = 2) {
+find_spell <- function(extr_day, min_spell = 2, id = NULL) {
+    key <- resolve_key(extr_day, id)
+
     spell_abv <- extr_day |>
-        dplyr::group_by(ID) |>
+        dplyr::group_by(dplyr::pick(dplyr::all_of(key))) |>
         dplyr::arrange(date, .by_group = TRUE) |>
         dplyr::transmute(
             dplyr::across(.cols = dplyr::matches("^day_abv_\\-?[0-9]{1,2}\\.?[0-9]?p?$"),
                           .fns = ~compute_spell(.x, threshold = min_spell))) |>
         dplyr::rename_with(.fn = ~ gsub("^day", "spell", .x)) |>
         dplyr::ungroup() |>
-        dplyr::select(-ID)
+        dplyr::select(-dplyr::all_of(key))
 
     spell_blw <- extr_day |>
-        dplyr::group_by(ID) |>
+        dplyr::group_by(dplyr::pick(dplyr::all_of(key))) |>
         dplyr::arrange(date, .by_group = TRUE) |>
         dplyr::transmute(
             dplyr::across(.cols = dplyr::matches("^day_blw_\\-?[0-9]{1,2}\\.?[0-9]?p?$"),
                           .fns = ~compute_spell(.x, threshold = min_spell))) |>
         dplyr::rename_with(.fn = ~ gsub("^day", "spell", .x)) |>
         dplyr::ungroup() |>
-        dplyr::select(-ID)
+        dplyr::select(-dplyr::all_of(key))
 
     extr_day |>
-        dplyr::select(ID, date, value) |>
+        dplyr::select(dplyr::all_of(key), date, value) |>
         list(spell_abv, spell_blw) |>
         purrr::compact() |>
         dplyr::bind_cols()

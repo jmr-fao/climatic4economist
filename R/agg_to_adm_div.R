@@ -11,9 +11,14 @@
 #' @param extra_col <[`tidy-select`][dplyr::dplyr_tidy_select]> Optional columns
 #'   carried through unchanged. They must be constant within each group, since
 #'   they are reduced with `unique()`.
+#' @param id Optional character string naming the column to aggregate by. When
+#'   `NULL`, `ID_adm_div` is used, falling back to `ID`. Note the preference is
+#'   the reverse of the rest of the package: a table carrying both should
+#'   aggregate to the administrative division, which is what this function is
+#'   for. Set `id` to group by anything else.
 #'
-#' @return A data frame grouped by administrative division (`ID_adm_div`) and `lag`,
-#'   with values aggregated by a weighted mean using `coverage_fraction` as weights.
+#' @return A data frame grouped by the identifier column and `lag`, with values
+#'   aggregated by a weighted mean using `coverage_fraction` as weights.
 #'
 #' @export
 #'
@@ -28,20 +33,15 @@
 #' agg_to_adm_div(df, match_col = "^day|^spell")
 #'
 
-agg_to_adm_div <- function(df, match_col, extra_col = NULL) {
-    # The key is fixed here, unlike elsewhere in the package: this function
-    # aggregates *to* administrative divisions, so `ID_adm_div` is what it
-    # means rather than whichever key the data happens to carry. Say so up
-    # front, or `any_of()` below silently drops the grouping and the failure
-    # surfaces later as an opaque tidyselect error from `relocate()`.
-    if (!"ID_adm_div" %in% names(df)) {
-        stop("`df` must contain an `ID_adm_div` column to aggregate by. ",
-             "Administrative divisions come from `read_GAUL()` or ",
-             "`read_geoBoundaries()`.", call. = FALSE)
-    }
+agg_to_adm_div <- function(df, match_col, extra_col = NULL, id = NULL) {
+    # Candidates are reversed here: the function aggregates *to* administrative
+    # divisions, so a table carrying both keys should group by ID_adm_div.
+    # Resolving up front also replaces what used to be an opaque tidyselect
+    # error thrown later by relocate() when the column was absent.
+    key <- resolve_key(df, id, candidates = c("ID_adm_div", "ID"))
 
     df |>
-        dplyr::group_by(dplyr::pick(dplyr::any_of(c("ID_adm_div", "lag")))) |>
+        dplyr::group_by(dplyr::pick(dplyr::any_of(c(key, "lag")))) |>
         dplyr::summarise(
             dplyr::across(
                 .cols = {{extra_col}},
@@ -50,5 +50,5 @@ agg_to_adm_div <- function(df, match_col, extra_col = NULL) {
                 .cols = dplyr::matches(match_col),
                 .fns = ~ weighted.mean(.x, w = coverage_fraction, na.rm = TRUE)),
             .groups = "drop") |>
-        dplyr::relocate({{extra_col}}, .after = ID_adm_div)
+        dplyr::relocate({{extra_col}}, .after = dplyr::all_of(key))
 }

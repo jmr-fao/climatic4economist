@@ -4,12 +4,12 @@
 \alias{find_spell}
 \title{Compute Spells of Extreme Values}
 \usage{
-find_spell(extr_day, min_spell = 2)
+find_spell(extr_day, min_spell = 2, id = NULL)
 }
 \arguments{
 \item{extr_day}{A data frame containing daily extreme values, with columns:
 \itemize{
-\item \code{ID}: Unique identifier for each entity.
+\item the identifier column: unique identifier for each entity.
 \item \code{date}: The date of observation.
 \item \code{value}: The observed value.
 \item \verb{day_abv_*}: Binary indicators for exceeding upper thresholds.
@@ -17,6 +17,10 @@ find_spell(extr_day, min_spell = 2)
 }}
 
 \item{min_spell}{Integer. The minimum number of consecutive days required to form a spell. Default is 2.}
+
+\item{id}{Optional character string naming the column that identifies the
+units. When \code{NULL}, \code{ID} is used, or \code{ID_adm_div} when that is the only
+one present.}
 }
 \value{
 A data frame with:

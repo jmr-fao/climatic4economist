@@ -8,6 +8,9 @@
 #' @param coord character. The coordinate reference system in one of the
 #'   following formats: WKT/WKT2, <authority>:<code>, or PROJ-string notation.
 #'   See \link[terra]{crs}.
+#' @param id Optional character string naming the column that identifies the
+#'   units. When `NULL`, `ID` is used, or `ID_adm_div` when that is the only
+#'   one present.
 #' @param iteration optional character to be print before computation. Usually,
 #'  it is the name of the object on which the function is applied. This is useful
 #'  when the function is used inside an apply family function to keep track of the
@@ -25,12 +28,17 @@
 #' @examples
 #' georef_coord(survey, crs = "epsg:4326")
 
-extract_by_coord <- function(raster, coord, iteration = NULL, ...) {
+extract_by_coord <- function(raster, coord, iteration = NULL, id = NULL, ...) {
     if (!is.null(iteration)) cat("Extracting:", iteration, "\n")
-    terra::extract(raster, coord, xy = TRUE, bind = TRUE, ...) |>
+
+    out <- terra::extract(raster, coord, xy = TRUE, bind = TRUE, ...) |>
         terra::values() |>
         tibble::as_tibble() |>
-        dplyr::rename_with(~gsub("\\.", "_", .x)) |>
-        dplyr::relocate(ID, x, y) |>
+        dplyr::rename_with(~gsub("\\.", "_", .x))
+
+    key <- resolve_key(out, id)
+
+    out |>
+        dplyr::relocate(dplyr::all_of(key), x, y) |>
         dplyr::rename(x_cell = x, y_cell = y)
 }

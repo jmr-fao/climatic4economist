@@ -9,6 +9,9 @@
 #'   and the `day_abv_*` / `day_blw_*` indicator columns.
 #' @param p A numeric vector of probabilities (e.g., `c(0.1, 0.5, 0.9)`)
 #'          representing the percentiles to compute.
+#' @param id Optional character string naming the column that identifies the
+#'   units. When `NULL`, `ID` is used, or `ID_adm_div` when that is the only
+#'   one present.
 #' @param min_spell Integer. The minimum number of consecutive days required to
 #'   form a spell. Default is 2. It is also used as the replacement value when a
 #'   group has no spell at all.
@@ -34,17 +37,20 @@
 #' calc_pct_spell(extr_day, p = c(0.1, 0.5, 0.9))
 #' }
 
-calc_pct_spell <- function(extr_day, p, min_spell = 2) {
-    find_spell(extr_day, min_spell = min_spell) |>
+calc_pct_spell <- function(extr_day, p, min_spell = 2, id = NULL) {
+    key <- resolve_key(extr_day, id)
+
+    find_spell(extr_day, min_spell = min_spell, id = key) |>
         dplyr::mutate(month = month_label(date),
                       .after = date) |>
-        dplyr::group_by(ID, month) |>
+        dplyr::group_by(dplyr::pick(dplyr::all_of(key)), month) |>
         dplyr::reframe(
             dplyr::across(
                 .cols = dplyr::matches("spell"),
                 .fns = ~quantile_df(.x, p, min_spell),
                 .unpack = TRUE)) |>
-        dplyr::select(ID, month, dplyr::matches("[0-9]?[0-9]p$")) |>
+        dplyr::select(dplyr::all_of(key), month,
+                      dplyr::matches("[0-9]?[0-9]p$")) |>
         dplyr::mutate(dplyr::across(
             .cols = dplyr::matches("spell"),
             .fns = as.integer))

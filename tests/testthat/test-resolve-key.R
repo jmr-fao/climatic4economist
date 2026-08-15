@@ -148,13 +148,78 @@ test_that("find_extr_spell_rel threads the key through its joins", {
     expect_false("ID" %in% names(out))
 })
 
-# --- agg_to_adm_div keeps its fixed key -------------------------------------
+# --- the five consumers added after the first pass ---------------------------
 
-test_that("agg_to_adm_div says plainly when its key is absent", {
+test_that("find_spell and calc_pct_spell work off ID_adm_div", {
+    extr_day <- data.frame(
+        ID_adm_div = c("1", "1", "1", "2", "2", "2"),
+        date = rep(as.Date(c("2022-01-01", "2022-01-02", "2022-01-03")), 2),
+        value = c(1, 2, 3, 4, 5, 6),
+        day_abv_90p = c(TRUE, TRUE, FALSE, FALSE, TRUE, TRUE)
+    )
+
+    sp <- find_spell(extr_day, min_spell = 2)
+    expect_true("ID_adm_div" %in% names(sp))
+    expect_false("ID" %in% names(sp))
+
+    pct <- calc_pct_spell(extr_day, p = 0.5, min_spell = 2)
+    expect_true("ID_adm_div" %in% names(pct))
+})
+
+test_that("find_spell keeps spells inside their own unit", {
+    # unit 1 ends hot and unit 2 starts hot: grouping is what stops these
+    # merging into one four-day spell
+    extr_day <- data.frame(
+        ID = c("1", "1", "2", "2"),
+        date = rep(as.Date(c("2022-01-01", "2022-01-02")), 2),
+        value = c(1, 2, 3, 4),
+        day_abv_90p = c(TRUE, TRUE, TRUE, TRUE)
+    )
+
+    sp <- find_spell(extr_day, min_spell = 2)
+
+    expect_equal(sum(!is.na(sp$spell_abv_90p)), 2L)
+    expect_true(all(sp$spell_abv_90p[!is.na(sp$spell_abv_90p)] == 2))
+})
+
+test_that("agg_to_adm_div prefers ID_adm_div when both keys are present", {
+    df <- data.frame(ID = c("a", "b", "c", "d"),
+                     ID_adm_div = c("1", "1", "2", "2"),
+                     lag = 0,
+                     day_abv_90p = c(5, 10, 2, 8),
+                     coverage_fraction = c(.6, .4, .7, .3))
+
+    out <- agg_to_adm_div(df, match_col = "^day")
+
+    # grouping by ID would give four rows, by ID_adm_div two
+    expect_equal(nrow(out), 2L)
+    expect_true("ID_adm_div" %in% names(out))
+})
+
+test_that("agg_to_adm_div can group by any column when told", {
+    df <- data.frame(region = c("n", "n", "s", "s"), lag = 0,
+                     day_abv_90p = c(5, 10, 2, 8),
+                     coverage_fraction = c(.6, .4, .7, .3))
+
+    out <- agg_to_adm_div(df, match_col = "^day", id = "region")
+
+    expect_equal(nrow(out), 2L)
+    expect_setequal(out$region, c("n", "s"))
+})
+
+test_that("agg_to_adm_div still reports a missing key clearly", {
     df <- data.frame(region = c("a", "a"), lag = 0,
                      day_abv_90p = c(5, 10), coverage_fraction = c(.6, .4))
 
-    # the key here is the function's meaning, not a detected label, so it must
-    # complain about ID_adm_div rather than fall back to something else
-    expect_error(agg_to_adm_div(df, match_col = "^day"), "ID_adm_div")
+    expect_error(agg_to_adm_div(df, match_col = "^day"), "No valid ID column")
+})
+
+test_that("georef_coord works off ID_adm_div", {
+    df <- data.frame(ID_adm_div = c("1", "2"),
+                     lon = c(10, 11), lat = c(45, 46))
+
+    v <- georef_coord(df, geom = c("lon", "lat"), crs = "EPSG:4326")
+
+    expect_s4_class(v, "SpatVector")
+    expect_true("ID_adm_div" %in% names(v))
 })
