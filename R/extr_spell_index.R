@@ -59,7 +59,7 @@ extr_spell_index <- function(df,
                       date = clock::date_parse(as.character(date)))
 
     # compute min_date shifted back
-    n_shift <- -(n_period * n_lags + 1)
+    n_shift <- -(n_period * (n_lags + 1))
     min_end <- min(df_date$end_date, na.rm = TRUE)
 
     min_date <- switch(
