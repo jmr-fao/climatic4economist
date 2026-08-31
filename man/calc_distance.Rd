@@ -35,8 +35,8 @@ If FALSE (default), returns a tibble with polygon attributes only.}
 \item{...}{Additional arguments passed to \code{terra::distance()} (e.g., \code{method = "haversine"}).}
 }
 \value{
-If \code{fun_summ} is provided, returns either a \link[terra:SpatVector-class]{terra::SpatVector} or
-a \link[tibble:tbl_df-class]{tibble::tbl_df} with the attributes of \code{x}
+If \code{fun_summ} is provided, returns either a \link[terra:SpatVector]{terra::SpatVector} or
+a \link[tibble:tbl_df]{tibble::tbl_df} with the attributes of \code{x}
 plus a \code{distance} column (in km). If \code{fun_summ} is NULL, returns a numeric
 distance matrix where rows correspond to features in \code{x} and columns to features in \code{y}.
 }
