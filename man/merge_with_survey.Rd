@@ -28,5 +28,5 @@ The functions uses the variable \code{ID} as the key matching variable.
 spi_survey <- merge_with_survey(survey, spi_values)
 }
 \seealso{
-\code{\link[dplyr:mutate-joins]{dplyr::full_join()}}
+\code{\link[dplyr:full_join]{dplyr::full_join()}}
 }

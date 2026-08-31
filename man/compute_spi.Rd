@@ -33,5 +33,5 @@ computation with \link[furrr:future_map]{furrr::future_map}.
 compute_spi(coord, time_scale = 1)
 }
 \seealso{
-\link[SPEI:Drought-indices]{SPEI::spi}
+\link[SPEI:spi]{SPEI::spi}
 }

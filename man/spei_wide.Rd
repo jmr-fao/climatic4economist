@@ -26,5 +26,5 @@ spei_wide(data, scale = 1)
 
 }
 \seealso{
-\link[SPEI:Drought-indices]{SPEI::spei}
+\link[SPEI:spei]{SPEI::spei}
 }
