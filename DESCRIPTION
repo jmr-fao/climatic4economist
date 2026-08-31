@@ -13,6 +13,7 @@ Description: Contains functions for extracting weather data based on survey loca
 License: GPL-2
 Encoding: UTF-8
 LazyData: true
+<<<<<<< Updated upstream
 Depends:
     R (>= 4.2)
 Imports:
@@ -38,6 +39,8 @@ Suggests:
     testthat (>= 3.0.0)
 Config/testthat/edition: 3
 RoxygenNote: 7.3.3
+=======
 Roxygen: list(markdown = TRUE)
 URL: https://github.com/jmr-fao/climatic4economist
 BugReports: https://github.com/jmr-fao/climatic4economist/issues
+Config/roxygen2/version: 8.1.0
