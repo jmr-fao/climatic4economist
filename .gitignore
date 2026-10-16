@@ -46,3 +46,7 @@ DS_Store
 .Rproj.user
 vignettes/.DS_Store
 .DS_Store
+
+# Synthetic fixtures for tests and examples (dev/make_fixtures.R); real data stays ignored
+!inst/extdata/*.tif
+!inst/extdata/*.gpkg
