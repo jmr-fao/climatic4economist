@@ -71,7 +71,7 @@ extr_day_index <- function(df,
                       date = parse_if_needed(date))
 
     # compute min_date shifted back
-    n_shift <- -(n_period * n_lags + 1)
+    n_shift <- -(n_period * (n_lags + 1))
     min_end <- min(df_date$end_date, na.rm = TRUE)
 
 

@@ -4,25 +4,30 @@
 \alias{merge_with_survey}
 \title{Merge survey observations with other data.}
 \usage{
-merge_with_survey(survey, new_value, iteration = NULL)
+merge_with_survey(survey, new_value, iteration = NULL, id = NULL)
 }
 \arguments{
-\item{survey}{A data frame. It must contains an \code{ID} for the merging.}
+\item{survey}{A data frame. It must contain the unit identifier column used
+for the merging.}
 
 \item{new_value}{A data frame. The data to be merge with the
-survey. It must contains an \code{ID} variable for the merging.}
+survey. It must carry the same identifier column as \code{survey}.}
 
 \item{iteration}{optional character to be print before computation. Usually,
 it is the name of the object on which the function is applied. This is useful
 when the function is used inside an apply family function to keep track of the
 iterations.}
+
+\item{id}{Optional character string naming the column that identifies the
+units. When \code{NULL}, \code{ID} is used, or \code{ID_adm_div} when that is the only
+one present.}
 }
 \value{
 A \link[tibble]{tbl_df}, with variables from the survey and new
 weather values.
 }
 \description{
-The functions uses the variable \code{ID} as the key matching variable.
+The two tables are matched on the column identifying the units.
 }
 \examples{
 spi_survey <- merge_with_survey(survey, spi_values)

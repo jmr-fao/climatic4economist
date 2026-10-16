@@ -30,12 +30,12 @@ compute_spi <- function(df, time_scale, iteration = NULL) {
     df |>
         dplyr::select(
             dplyr::any_of(c("ID", "ID_adm_div", "x_cell", "y_cell", "coverage_fraction")),
-            dplyr::matches("[0-9]{4}.[0-9]{2}")) |>
+            dplyr::matches(date_pattern())) |>
         dplyr::distinct(
             dplyr::pick(
                 dplyr::any_of(c("ID", "ID_adm_div", "x_cell", "y_cell", "coverage_fraction"))),
             .keep_all = TRUE) |>
-        tidyr::pivot_longer(cols = dplyr::matches("[0-9]{4}.[0-9]{2}")) |>
+        tidyr::pivot_longer(cols = dplyr::matches(date_pattern())) |>
         dplyr::group_by(dplyr::pick(
             dplyr::any_of(c("ID", "ID_adm_div", "x_cell", "y_cell", "coverage_fraction")))) |>
         dplyr::arrange(name, .by_group = TRUE) |>
