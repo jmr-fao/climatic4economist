@@ -50,6 +50,7 @@ States: ☐ not started · 🔄 in progress · 👀 in review (PR open) · ✔ d
 | 2026-10-16 | §8 | Chunk 0 commits locally; pushing is left to Jan | pushing a branch is outward-facing |
 | 2026-10-16 | §2, §13 | `read_climate()` must not rely on `terra::varnames()` for the variable: on read, terra replaces it with the file name (`tmax_daily`). Store the variable in `terra::metags()` and fall back to an explicit argument. `time()` and `units()` do round-trip through GeoTIFF. | found while building fixtures |
 | 2026-10-16 | §8 chunk 0 | The fixture generator lives in `dev/make_fixtures.R` (build-ignored), not in a `data-raw/` folder | keeps all v2 development material in one place |
+| 2026-10-16 | §8 chunk 0 | `.gitignore` keeps ignoring every `.tif`/`.gpkg` but re-includes `inst/extdata/*.tif` and `*.gpkg` | protect real data while tracking the synthetic fixtures |
 
 ## How to run things on a machine without R on the PATH
 
@@ -83,3 +84,5 @@ Fixtures are rebuilt (identically, seeded) with:
 - Tests: 26 files, 334 tests, 675 expectations passed, 0 failures. One
   pre-existing warning comes from the SPEI fit in `test-compute-spei.R`.
 - Next: see Next steps above.
+- Commits on `v2`: `8d8e5b1` (scaffold), `4621557` (track fixtures), and
+  the commit that adds this line.
