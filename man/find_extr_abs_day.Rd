@@ -4,11 +4,11 @@
 \alias{find_extr_abs_day}
 \title{Identify absolute extreme weather events}
 \usage{
-find_extr_abs_day(df, u_thresh = NULL, l_thresh = NULL, unit = NULL)
+find_extr_abs_day(df, u_thresh = NULL, l_thresh = NULL, unit = NULL, id = NULL)
 }
 \arguments{
 \item{df}{A dataframe containing time-series data with column names
-representing dates and a variable \code{ID} that identifies the unique units.}
+representing dates and a variable identifying the unique units.}
 
 \item{u_thresh}{A numeric vector specifying upper threshold values. Optional,
 default is NULL.}
@@ -19,6 +19,10 @@ default is NULL.}
 \item{unit}{A character string specifying the unit of measure of the weather
 observations, (default: "unit"). E.g. "mm" for precipitation, "C" for
 temperature.}
+
+\item{id}{Optional character string naming the column that identifies the
+units. When \code{NULL}, \code{ID} is used, or \code{ID_adm_div} when that is the only
+one present.}
 }
 \value{
 A dataframe containing:

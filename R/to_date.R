@@ -21,6 +21,8 @@
 #' "2023-12-31"
 
 to_date <- function(x) {
-    stringi::stri_replace_first_fixed(x, "X", "") |>
+    # anchored: a bare "X" strips the first one anywhere, so a name such as
+    # "MAX_2020" would come back as "MA-2020"
+    stringi::stri_replace_first_regex(x, "^X", "") |>
         stringi::stri_replace_all_regex("[_./]", "-")
 }

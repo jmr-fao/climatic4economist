@@ -69,7 +69,7 @@ select_by_interview <- function(df, interview, interval, wide = FALSE) {
 
     # 3) to long format
     df_long <- df_cln |>
-        tidyr::pivot_longer(cols = dplyr::matches("[0-9]{4}"),
+        tidyr::pivot_longer(cols = dplyr::matches(date_pattern()),
                             names_to = "date")
 
     # 4) filter based on interval
