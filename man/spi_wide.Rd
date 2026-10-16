@@ -24,5 +24,5 @@ Compute the Standardized Precipitation Index (SPI) in wide format.
 spi_wide(data, scale = 1)
 }
 \seealso{
-\link[SPEI:Drought-indices]{SPEI::spi}
+\link[SPEI:spi]{SPEI::spi}
 }

@@ -4,7 +4,7 @@
 \alias{calc_pct_spell}
 \title{Compute spell length percentiles by month}
 \usage{
-calc_pct_spell(extr_day, p, min_spell = 2)
+calc_pct_spell(extr_day, p, min_spell = 2, id = NULL)
 }
 \arguments{
 \item{extr_day}{A data frame of daily extreme indicators, as returned by
@@ -17,6 +17,10 @@ representing the percentiles to compute.}
 \item{min_spell}{Integer. The minimum number of consecutive days required to
 form a spell. Default is 2. It is also used as the replacement value when a
 group has no spell at all.}
+
+\item{id}{Optional character string naming the column that identifies the
+units. When \code{NULL}, \code{ID} is used, or \code{ID_adm_div} when that is the only
+one present.}
 }
 \value{
 A data frame with one row per \code{ID} and \code{month}, containing one integer

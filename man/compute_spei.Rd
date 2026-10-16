@@ -34,5 +34,5 @@ compute_spei(coord, time_scale = 1)
 
 }
 \seealso{
-\link[SPEI:Drought-indices]{SPEI::spei}
+\link[SPEI:spei]{SPEI::spei}
 }

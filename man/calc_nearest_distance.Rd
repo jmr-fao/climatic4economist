@@ -18,14 +18,14 @@ If FALSE (default), returns a tibble with polygon attributes only.}
 (e.g., \code{method}, \code{centroids}, \code{distance}).}
 }
 \value{
-Either a \link[terra:SpatVector-class]{terra::SpatVector} or a \link[tibble:tbl_df-class]{tibble::tbl_df} equal to \code{x} with an added column:
+Either a \link[terra:SpatVector]{terra::SpatVector} or a \link[tibble:tbl_df]{tibble::tbl_df} equal to \code{x} with an added column:
 \itemize{
 \item \code{dist_nearest_km}: minimum distance to \code{y} in kilometers.
 }
 }
 \description{
 Computes the minimum distance from each feature in \code{x} to the nearest
-feature in \code{y} using \code{\link[terra:nearby]{terra::nearest()}}. Returns \code{x} with an added
+feature in \code{y} using \code{\link[terra:nearest]{terra::nearest()}}. Returns \code{x} with an added
 column containing the nearest distance in kilometers.
 }
 \details{
@@ -47,5 +47,5 @@ x_with_dist <- calc_nearest_distance(
 
 }
 \seealso{
-\link[terra:nearby]{terra::nearest} \link{calc_distance}
+\link[terra:nearest]{terra::nearest} \link{calc_distance}
 }

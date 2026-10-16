@@ -4,7 +4,7 @@
 \alias{agg_to_adm_div}
 \title{Aggregate Data to Administrative Divisions}
 \usage{
-agg_to_adm_div(df, match_col, extra_col = NULL)
+agg_to_adm_div(df, match_col, extra_col = NULL, id = NULL)
 }
 \arguments{
 \item{df}{A data frame containing extreme event indicators, administrative division IDs,
@@ -16,10 +16,16 @@ aggregate, for example \code{"^day|^spell"}.}
 \item{extra_col}{<\code{\link[dplyr:dplyr_tidy_select]{tidy-select}}> Optional columns
 carried through unchanged. They must be constant within each group, since
 they are reduced with \code{unique()}.}
+
+\item{id}{Optional character string naming the column to aggregate by. When
+\code{NULL}, \code{ID_adm_div} is used, falling back to \code{ID}. Note the preference is
+the reverse of the rest of the package: a table carrying both should
+aggregate to the administrative division, which is what this function is
+for. Set \code{id} to group by anything else.}
 }
 \value{
-A data frame grouped by administrative division (\code{ID_adm_div}) and \code{lag},
-with values aggregated by a weighted mean using \code{coverage_fraction} as weights.
+A data frame grouped by the identifier column and \code{lag}, with values
+aggregated by a weighted mean using \code{coverage_fraction} as weights.
 }
 \description{
 This function aggregates daily and spell-based extreme event indicators to the level

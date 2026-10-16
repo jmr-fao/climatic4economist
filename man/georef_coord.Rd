@@ -4,7 +4,7 @@
 \alias{georef_coord}
 \title{Georeference based on coordinates and coordinate reference system}
 \usage{
-georef_coord(df, geom, crs)
+georef_coord(df, geom, crs, id = NULL)
 }
 \arguments{
 \item{df}{A data frame.}
@@ -15,6 +15,10 @@ for x and y coordinates of points.}
 \item{crs}{character. The coordinate reference system in one of the following
 formats: WKT/WKT2, \if{html}{\out{<authority>}}:\if{html}{\out{<code>}}, or PROJ-string notation. See
 \link[terra]{crs}.}
+
+\item{id}{Optional character string naming the column that identifies the
+units. When \code{NULL}, \code{ID} is used, or \code{ID_adm_div} when that is the only
+one present.}
 }
 \value{
 A \link[terra]{SpatVector} of points with one variable \code{ID} as

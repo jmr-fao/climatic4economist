@@ -21,10 +21,10 @@
 #'   intervals of the specified width between the start and end dates.
 #'
 #' @details
-#' - When `calendar = TRUE`, the interval is divided by a
-#'   [lubridate::period()], which is calendar-aware: it counts **completed
-#'   calendar months or years**, respecting variable month lengths and leap
-#'   years.
+#' - When `calendar = TRUE`, the span is measured against the calendar: it
+#'   counts **completed calendar months or years**, respecting variable month
+#'   lengths and leap years. A month elapses when the day of the month comes
+#'   round again, so 31 January to 28 February is one whole month.
 #' - When `calendar = FALSE`, it is divided by a [lubridate::duration()], a
 #'   fixed span of seconds. A year is always 365.25 days (`dyears()`) and a
 #'   month always 30.4375 days (`dmonths()`).
@@ -44,17 +44,14 @@
 #' side. Every lag in a given call is normally the same sign, so this rarely
 #' arises, but split the calls if it does.
 #'
-#' `calendar = TRUE` is far more expensive, because dividing by a period has to
-#' walk the calendar for every element, while dividing by a duration is one
-#' vectorised arithmetic operation. On a million dates, monthly lags take about
-#' 20 seconds with `calendar = TRUE` against roughly 5 milliseconds with
-#' `calendar = FALSE`, and the calendar path also builds an intermediate that is
-#' twice the size. Use `calendar = FALSE` for large panels when approximate
-#' bins are acceptable.
+#' `calendar = TRUE` costs more than `calendar = FALSE`, but not enough to
+#' choose between them on speed: on a million dates monthly lags take roughly
+#' 0.3 seconds against 0.01 seconds. Pick the mode that matches the bins you
+#' want, not the one that runs faster.
 #'
 #' @export
 #'
-#' @seealso [lubridate::interval()]
+#' @seealso [clock::add_months()], [lubridate::duration()]
 #'
 #' @examples
 #' # Calendar-aware: number of full years between two dates
@@ -88,11 +85,38 @@ find_lag <- function(start,
     # seven days and a day always one, so those go down the cheap path whatever
     # `calendar` says, which is also what the two modes are documented to do.
     if (calendar && unit %in% c("year", "month")) {
-        # Periods are calendar-aware: they respect real month lengths and leap
-        # years. This needs a full Interval, which carries a start instant
-        # alongside each span, and has to walk the calendar per element.
-        step <- lubridate::period(width, units = unit)
-        return(lubridate::interval(end, start) %/% step)
+        # Recycling makes the result as long as the longer input, so an empty
+        # one empties the result. Short-circuit, because the anniversary step
+        # below errors on zero-length input rather than passing it through.
+        if (length(start) == 0L || length(end) == 0L) return(numeric(0))
+
+        # Whole calendar months between the two dates, read off the year and
+        # month components. Dividing an Interval by a Period gets the same
+        # answer but has to walk the calendar once per element, which dominates
+        # the cost on a long vector.
+        months_apart <- (lubridate::year(start) - lubridate::year(end)) * 12L +
+            (lubridate::month(start) - lubridate::month(end))
+
+        # The component difference counts a month that may not have elapsed:
+        # 12 July 1996 to 9 July 1997 differs by twelve months on the calendar
+        # but falls three days short of a year. Compare against the anniversary
+        # to drop the incomplete month, in whichever direction the span runs.
+        # `invalid = "previous"` rolls a non-existent target back to the last
+        # day of its month, matching how dividing by a Period treats the same
+        # case: 29 February plus twelve months is 28 February.
+        anniversary <- clock::add_months(end, as.integer(months_apart),
+                                         invalid = "previous")
+
+        months_apart <- ifelse(
+            months_apart > 0 & anniversary > start, months_apart - 1L,
+            ifelse(months_apart < 0 & anniversary < start, months_apart + 1L,
+                   months_apart))
+
+        # A calendar year is exactly twelve calendar months, so both units
+        # share this path. trunc() gives the toward-zero rounding documented
+        # above, which floor division would not.
+        step <- if (unit == "year") 12L * width else width
+        return(trunc(months_apart / step))
     }
 
     # Durations are fixed spans of seconds, so a "year" is always 365.25 days

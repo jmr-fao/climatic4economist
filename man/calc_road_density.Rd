@@ -18,7 +18,7 @@ If NULL, the function searches for \code{"ID"} or \code{"ID_adm_div"}.}
 If FALSE (default), returns a tibble with polygon attributes only.}
 }
 \value{
-Either a \link[terra:SpatVector-class]{terra::SpatVector} or a \link[tibble:tbl_df-class]{tibble::tbl_df} with columns:
+Either a \link[terra:SpatVector]{terra::SpatVector} or a \link[tibble:tbl_df]{tibble::tbl_df} with columns:
 \describe{
 \item{road_length_km}{Total road length inside each polygon in km}
 \item{n_roads}{Number of road segments intersecting each polygon}
