@@ -13,7 +13,9 @@
 #' @export
 #'
 #' @examples
-#' prepare_coord(survey, gps_lat, gps_lon)
+#' survey <- read.csv(
+#'   system.file("extdata", "survey.csv", package = "climatic4economist"))
+#' prepare_coord(survey, lat_var = lat, lon_var = lon)
 
 prepare_coord <- function(df, lat_var, lon_var) {
     df |>

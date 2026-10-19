@@ -30,7 +30,15 @@ weather values.
 The two tables are matched on the column identifying the units.
 }
 \examples{
-spi_survey <- merge_with_survey(survey, spi_values)
+tmax <- terra::rast(
+  system.file("extdata", "tmax_daily.tif", package = "climatic4economist"))
+survey <- read.csv(
+  system.file("extdata", "survey.csv", package = "climatic4economist"))
+coord <- prepare_coord(survey, lat_var = lat, lon_var = lon)
+points <- georef_coord(coord, geom = c("lon", "lat"), crs = "EPSG:4326")
+tmax_points <- extract_by_coord(tmax[[1:5]], points)
+
+merge_with_survey(coord, tmax_points)
 }
 \seealso{
 \code{\link[dplyr:full_join]{dplyr::full_join()}}

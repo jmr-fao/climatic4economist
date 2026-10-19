@@ -26,5 +26,5 @@ probabilities. If all values in the vector are \code{NA}, it returns a
 specified replacement value.
 }
 \seealso{
-\code{\link[=quantile]{quantile()}}
+\code{\link[stats:quantile]{stats::quantile()}}
 }

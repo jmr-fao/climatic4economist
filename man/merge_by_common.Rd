@@ -7,16 +7,15 @@
 merge_by_common(x, y = NULL)
 }
 \arguments{
-\item{x}{A data frame or a list. If it's a list, the function will attempt to identify
-the common columns across all list elements.}
+\item{x}{A data frame, or a list of data frames.}
 
 \item{y}{A data frame (optional). If provided, the function will merge \code{x} and \code{y}
-by the common column(s). If \code{y} is \code{NULL} and \code{x} is a list, the function
-will merge the elements of \code{x} based on shared column names.}
+by the common column(s). If \code{y} is \code{NULL} and \code{x} is a list, the
+elements of \code{x} are merged in order, each on the columns it shares with
+the result so far.}
 }
 \value{
-A merged data frame or list. If the inputs are data frames, it returns a merged
-data frame. If the inputs are lists, it returns the merged list elements based on the common columns.
+A single data frame, the full join of the inputs.
 }
 \description{
 This function merges two data frames or lists by their common variable(s). It uses

@@ -33,6 +33,7 @@ remain unchanged.
 The function does not modify column values or types.
 }
 \examples{
+df <- data.frame(ID = "1", X2022_03_01 = 3, X2022_01_01 = 1, X2022_02_01 = 2)
 sort_date_columns(df)
 
 }

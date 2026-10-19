@@ -5,8 +5,8 @@
 #'
 #' @param raster A `SpatRaster` or `RasterLayer` object representing the raster
 #'   data to extract.
-#' @param poly A `sf` or `SpatialPolygonsDataFrame` object representing the
-#'   polygon(s) for extraction.
+#' @param poly A `SpatVector` or `sf` object representing the polygon(s) for
+#'   extraction.
 #' @param ... additional arguments to pass to [exactextractr::exact_extract].
 #'
 #' @return A data frame containing extracted values, along with coordinates
@@ -17,15 +17,13 @@
 #' @export
 #'
 #' @examples
-#' # Example raster
-#' r <- terra::rast(nrows=100, ncols=100, xmin=0, xmax=10, ymin=0, ymax=10)
-#' terra::values(r) <- runif(ncell(r), min = 0, max = 100)
+#' tmax <- terra::rast(
+#'   system.file("extdata", "tmax_daily.tif", package = "climatic4economist"))
+#' adm_div <- terra::vect(
+#'   system.file("extdata", "adm_div.gpkg", package = "climatic4economist"))
 #'
-#' # Example polygon
-#' poly <- sf::st_as_sf(sf::st_buffer(st_sfc(sf::st_point(c(5, 5))), dist = 1))
-#'
-#' # Extract raster values within the polygon
-#' extract_cell_by_poly(r, poly)
+#' # one row per cell and division, with the share of the cell inside it
+#' extract_cell_by_poly(tmax[[1:3]], adm_div)
 
 extract_cell_by_poly <- function(raster, poly, ...) {
 

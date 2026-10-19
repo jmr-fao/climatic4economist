@@ -4,14 +4,13 @@
 #' \code{find_merge_var} to identify the shared columns between the two inputs and
 #' performs a full join using \code{dplyr::full_join}.
 #'
-#' @param x A data frame or a list. If it's a list, the function will attempt to identify
-#'   the common columns across all list elements.
+#' @param x A data frame, or a list of data frames.
 #' @param y A data frame (optional). If provided, the function will merge \code{x} and \code{y}
-#'   by the common column(s). If \code{y} is \code{NULL} and \code{x} is a list, the function
-#'   will merge the elements of \code{x} based on shared column names.
+#'   by the common column(s). If \code{y} is \code{NULL} and \code{x} is a list, the
+#'   elements of \code{x} are merged in order, each on the columns it shares with
+#'   the result so far.
 #'
-#' @return A merged data frame or list. If the inputs are data frames, it returns a merged
-#'   data frame. If the inputs are lists, it returns the merged list elements based on the common columns.
+#' @return A single data frame, the full join of the inputs.
 #'
 #' @seealso \code{\link[dplyr]{full_join}}, \code{\link{find_merge_var}}
 #'
@@ -31,6 +30,15 @@
 #' merged_list <- merge_by_common(list_df)
 
 merge_by_common <- function(x, y = NULL) {
+    if (is.null(y)) {
+        if (!is.list(x) || is.data.frame(x)) {
+            stop("Provide `y`, or give `x` as a list of data frames.",
+                 call. = FALSE)
+        }
+        # join the elements in order, each on the columns it shares with the
+        # result so far
+        return(purrr::reduce(x, merge_by_common))
+    }
     merge_var <- find_merge_var(x, y)
     dplyr::full_join(x, y, by = merge_var)
 }

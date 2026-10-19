@@ -29,7 +29,10 @@ This this function transform a data frame into a point
 \link[terra]{SpatVector}.
 }
 \examples{
-georef_coord(survey, crs = "epsg:4326")
+survey <- read.csv(
+  system.file("extdata", "survey.csv", package = "climatic4economist"))
+coord <- prepare_coord(survey, lat_var = lat, lon_var = lon)
+georef_coord(coord, geom = c("lon", "lat"), crs = "EPSG:4326")
 }
 \seealso{
 \link[terra:vect]{terra::vect}

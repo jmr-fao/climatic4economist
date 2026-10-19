@@ -19,7 +19,9 @@ This function calculates the water balance by summing precipitation (\code{pre})
 potential evapotranspiration (\code{pet}) for each corresponding cell.
 }
 \examples{
-pre <- data.frame(ID = 1:3, x_cell = c(10, 20, 30), y_cell = c(40, 50, 60), `2020` = c(100, 120, 140))
-pet <- data.frame(ID = 1:3, x_cell = c(10, 20, 30), y_cell = c(40, 50, 60), `2020` = c(-50, -60, -70))
+pre <- data.frame(ID = 1:3, x_cell = c(10, 20, 30), y_cell = c(40, 50, 60),
+                  `2020` = c(100, 120, 140))
+pet <- data.frame(ID = 1:3, x_cell = c(10, 20, 30), y_cell = c(40, 50, 60),
+                  `2020` = c(-50, -60, -70))
 compute_water_balance(pre, pet)
 }

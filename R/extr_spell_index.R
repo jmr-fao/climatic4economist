@@ -27,8 +27,14 @@
 #' @export
 #'
 #' @examples
-#' extr_spell_index(df, interview = "interview_date", id = "household_id",
-#'                  interval = "12m", n_lags = 3)
+#' df <- data.frame(
+#'   hhid = "A",
+#'   interview = as.Date("2024-01-01"),
+#'   date = as.Date(c("2023-03-01", "2023-06-01", "2022-06-01")),
+#'   spell_abv_30 = c(3, NA, 5)
+#' )
+#' extr_spell_index(df, interview = interview, id = hhid,
+#'                  interval = "1 year", n_lags = 1)
 
 extr_spell_index <- function(df,
                              iteration = NULL,

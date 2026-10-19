@@ -7,12 +7,11 @@
 extract_by_coord(raster, coord, iteration = NULL, id = NULL, ...)
 }
 \arguments{
-\item{raster}{A data frame. It must contains two variables named \code{lat} and
-\code{lon}.}
+\item{raster}{A \link[terra]{SpatRaster}. Each layer becomes one column of
+the result.}
 
-\item{coord}{character. The coordinate reference system in one of the
-following formats: WKT/WKT2, \if{html}{\out{<authority>}}:\if{html}{\out{<code>}}, or PROJ-string notation.
-See \link[terra]{crs}.}
+\item{coord}{A point \link[terra]{SpatVector} carrying the unit identifier,
+typically created with \code{\link[=georef_coord]{georef_coord()}}.}
 
 \item{iteration}{optional character to be print before computation. Usually,
 it is the name of the object on which the function is applied. This is useful
@@ -35,7 +34,14 @@ Extract values from a \link[terra]{SpatRaster} for a set of locations.
 The locations must be a point \link[terra]{SpatVector}.
 }
 \examples{
-georef_coord(survey, crs = "epsg:4326")
+tmax <- terra::rast(
+  system.file("extdata", "tmax_daily.tif", package = "climatic4economist"))
+survey <- read.csv(
+  system.file("extdata", "survey.csv", package = "climatic4economist"))
+coord <- prepare_coord(survey, lat_var = lat, lon_var = lon)
+points <- georef_coord(coord, geom = c("lon", "lat"), crs = "EPSG:4326")
+
+extract_by_coord(tmax[[1:5]], points)
 }
 \seealso{
 \code{\link[terra]{extract}}

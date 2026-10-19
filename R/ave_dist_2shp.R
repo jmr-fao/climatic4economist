@@ -32,7 +32,12 @@
 #' @export
 #'
 #' @examples
-#' ave_dist_rivers <- ave_dist_2shp(country_ext=gadm3,target=polygons_gns,shape_input=rivers_fao, UTM=31,res_raster=10000,name_dist="rivers")
+#' \dontrun{
+#' # needs your own boundaries, targets and river lines
+#' ave_dist_rivers <- ave_dist_2shp(country_ext = gadm3, target = polygons_gns,
+#'                                  shape_input = rivers_fao, UTM = 31,
+#'                                  res_raster = 10000, name_dist = "rivers")
+#' }
 #'
 
 ave_dist_2shp <- function(country_ext, target, shape_input, UTM, res_raster, name_dist) {

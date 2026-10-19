@@ -29,8 +29,8 @@
 #'   ID = c(1, 1, 1, 2, 2),
 #'   date = as.Date(c("2024-01-01", "2024-01-02", "2024-01-03", "2024-01-01", "2024-01-02")),
 #'   value = c(10, 12, 15, 8, 7),
-#'   day_abv_90p = c(0, 1, 1, 0, 0),
-#'   day_blw_10p = c(1, 0, 0, 1, 1)
+#'   day_abv_90p = c(FALSE, TRUE, TRUE, FALSE, FALSE),
+#'   day_blw_10p = c(TRUE, FALSE, FALSE, TRUE, TRUE)
 #' )
 #' find_spell(df, min_spell = 2)
 

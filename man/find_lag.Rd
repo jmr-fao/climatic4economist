@@ -89,5 +89,5 @@ find_lag(dates, reference, unit = "month")
 
 }
 \seealso{
-\code{\link[clock:clock-arithmetic]{clock::add_months()}}, \code{\link[lubridate:duration]{lubridate::duration()}}
+\code{\link[clock:add_months]{clock::add_months()}}, \code{\link[lubridate:duration]{lubridate::duration()}}
 }

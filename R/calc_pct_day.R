@@ -30,7 +30,13 @@
 #' @import data.table
 #'
 #' @examples
-#' calc_pct_day(df, p = c(0.25, 0.5, 0.75), l_thresh = 60, u_thresh = 0.1)
+#' df <- data.frame(ID = c("1", "2"),
+#'                  X2022.01 = c(1, 30), X2022.02 = c(2, 25),
+#'                  X2023.01 = c(6, 22), X2023.02 = c(4, 28))
+#' calc_pct_day(df, p = c(0.1, 0.9))
+#'
+#' # wet-day percentiles: days with less than 0.1 mm are excluded
+#' calc_pct_day(df, p = 0.9, l_thresh = 0.1)
 
 calc_pct_day <- function(df,
                          iteration = NULL,

@@ -23,6 +23,21 @@ test_that("merge_by_common joins on the shared column", {
     expect_setequal(names(out), c("ID", "x", "y"))
 })
 
+test_that("merge_by_common merges a list of data frames in order", {
+    # the documented list form used to pass NULL to full_join() and error
+    lst <- list(data.frame(ID = 1:3, x = c(10, 20, 30)),
+                data.frame(ID = c(2, 3, 4), y = c(200, 300, 400)),
+                data.frame(ID = 1:2, x = c(10, 20), z = c("a", "b")))
+    out <- merge_by_common(lst)
+    expect_equal(nrow(out), 4L)
+    expect_setequal(names(out), c("ID", "x", "y", "z"))
+    expect_equal(out$z[out$ID == 2], "b")
+})
+
+test_that("merge_by_common without y needs a list of data frames", {
+    expect_error(merge_by_common(data.frame(ID = 1)), "list of data frames")
+})
+
 test_that("merge_with_survey joins new values onto the survey by ID", {
     survey <- data.frame(ID = c("1", "2"), hh = c("a", "b"))
     values <- data.frame(ID = c("1", "2"), spi = c(0.5, -1.2))

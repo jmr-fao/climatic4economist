@@ -14,7 +14,7 @@
 #'   probabilities `p`, ignoring `NA` values. If all values in `x` are `NA`,
 #'   every element is `replace`.
 #'
-#' @seealso [quantile()]
+#' @seealso [stats::quantile()]
 #'
 #' @export
 

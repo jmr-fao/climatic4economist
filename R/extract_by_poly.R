@@ -27,11 +27,12 @@
 #' @export
 #'
 #' @examples
-#' r <- terra::rast(nrows=10, ncols=10)
-#' terra::values(r) <- runif(ncell(r))
-#' p <- terra::vect(matrix(c(0,0,1,0,1,1,0,1,0,0), ncol=2, byrow=TRUE), type="polygons")
+#' tmax <- terra::rast(
+#'   system.file("extdata", "tmax_daily.tif", package = "climatic4economist"))
+#' adm_div <- terra::vect(
+#'   system.file("extdata", "adm_div.gpkg", package = "climatic4economist"))
 #'
-#' extract_by_poly(r, p)
+#' extract_by_poly(tmax[[1:5]], adm_div)
 
 extract_by_poly <- function(raster, poly, fn_agg = "mean", na_rm = TRUE, pkg = "terra") {
 

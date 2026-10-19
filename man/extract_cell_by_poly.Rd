@@ -10,8 +10,8 @@ extract_cell_by_poly(raster, poly, ...)
 \item{raster}{A \code{SpatRaster} or \code{RasterLayer} object representing the raster
 data to extract.}
 
-\item{poly}{A \code{sf} or \code{SpatialPolygonsDataFrame} object representing the
-polygon(s) for extraction.}
+\item{poly}{A \code{SpatVector} or \code{sf} object representing the polygon(s) for
+extraction.}
 
 \item{...}{additional arguments to pass to \link[exactextractr:exact_extract]{exactextractr::exact_extract}.}
 }
@@ -24,15 +24,13 @@ This function extracts raster values within a given polygon using the
 \code{exactextractr} package.
 }
 \examples{
-# Example raster
-r <- terra::rast(nrows=100, ncols=100, xmin=0, xmax=10, ymin=0, ymax=10)
-terra::values(r) <- runif(ncell(r), min = 0, max = 100)
+tmax <- terra::rast(
+  system.file("extdata", "tmax_daily.tif", package = "climatic4economist"))
+adm_div <- terra::vect(
+  system.file("extdata", "adm_div.gpkg", package = "climatic4economist"))
 
-# Example polygon
-poly <- sf::st_as_sf(sf::st_buffer(st_sfc(sf::st_point(c(5, 5))), dist = 1))
-
-# Extract raster values within the polygon
-extract_cell_by_poly(r, poly)
+# one row per cell and division, with the share of the cell inside it
+extract_cell_by_poly(tmax[[1:3]], adm_div)
 }
 \seealso{
 \code{\link[exactextractr]{exact_extract}}

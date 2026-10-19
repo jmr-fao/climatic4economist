@@ -23,7 +23,15 @@
 #' @export
 #'
 #' @examples
-#' compute_spi(coord, time_scale = 1)
+#' pre <- terra::rast(
+#'   system.file("extdata", "pre_monthly.tif", package = "climatic4economist"))
+#' survey <- read.csv(
+#'   system.file("extdata", "survey.csv", package = "climatic4economist"))
+#' coord <- prepare_coord(survey, lat_var = lat, lon_var = lon)
+#' points <- georef_coord(coord, geom = c("lon", "lat"), crs = "EPSG:4326")
+#' pre_points <- extract_by_coord(pre, points)
+#'
+#' compute_spi(pre_points, time_scale = 3)
 
 compute_spi <- function(df, time_scale, iteration = NULL) {
     if (!is.null(iteration)) cat("Computing SPI:", iteration, "\n")
@@ -60,8 +68,7 @@ compute_spi <- function(df, time_scale, iteration = NULL) {
 #'   each column is an observation in time.
 #' @seealso [SPEI::spi]
 #'
-#' @examples
-#' spi_wide(data, scale = 1)
+#' @noRd
 
 spi_wide <- function(df_list, scale = 1) {
     SPEI::spi(df_list$value, scale = scale, verbose = FALSE, na.rm = TRUE) |>

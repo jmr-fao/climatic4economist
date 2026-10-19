@@ -21,7 +21,17 @@
 #' @seealso [SPEI::spei]
 #'
 #' @examples
-#' compute_spei(coord, time_scale = 1)
+#' pre <- terra::rast(
+#'   system.file("extdata", "pre_monthly.tif", package = "climatic4economist"))
+#' survey <- read.csv(
+#'   system.file("extdata", "survey.csv", package = "climatic4economist"))
+#' coord <- prepare_coord(survey, lat_var = lat, lon_var = lon)
+#' points <- georef_coord(coord, geom = c("lon", "lat"), crs = "EPSG:4326")
+#'
+#' # water balance: precipitation minus a constant 60 mm of evapotranspiration
+#' balance <- extract_by_coord(pre - 60, points)
+#'
+#' compute_spei(balance, time_scale = 3)
 #'
 compute_spei <- function(df, time_scale, iteration = NULL) {
     if (!is.null(iteration)) {
@@ -62,9 +72,7 @@ compute_spei <- function(df, time_scale, iteration = NULL) {
 #'
 #' @seealso [SPEI::spei]
 #'
-#' @examples
-#' spei_wide(data, scale = 1)
-#'
+#' @noRd
 spei_wide <- function(df_list, scale = 1) {
     SPEI::spei(df_list$value, scale = scale, verbose = FALSE, na.rm = TRUE) |>
         fitted() |>
